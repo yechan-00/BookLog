@@ -82,6 +82,7 @@ Format: `<type>(<scope>): <summary>`
   - Summary of changes
   - How to verify (which screen, what to do)
   - Screenshots for UI changes
+  - Documentation checklist (see Documentation Rules): PRD status updated, decision record and DevLog added, or not applicable
 - Make `npx tsc --noEmit` and `npx expo lint` pass before opening the PR.
 - Once one teammate approves, merge with **Squash and merge**, then delete the working branch.
 
@@ -106,6 +107,7 @@ Format: `<type>(<scope>): <summary>`
 - If the current branch is `main`, create a working branch named per rule 1 before editing any code.
 - Do not modify files outside the requested scope (no bulk reformatting or mass renames).
 - Do not add features outside the PRD's MVP (P0) scope (P1/P2) on your own.
+- After finishing an implementation, draft the DevLog and show it to the user before committing. Set `author` to the user's name, not the AI tool.
 
 ## Coding Rules
 
@@ -180,12 +182,38 @@ Documentation is part of the work: a requirement is not done until its documenta
 - Keep each record short, with these sections: Context, Decision, Alternatives considered, Consequences.
 - Do not edit an accepted record to change history. Add a new record that supersedes it and link the two.
 
-### 3. PR checklist
+### 3. DevLog
+
+- When a PR implements a requirement (or a meaningful feature unit), add a DevLog entry in the same PR at `docs/devlog/YYYY-MM-DD-<requirement-ID>-short-title.md`. If several requirements are covered, use the main ID in the file name. Skip DevLogs for typo, style, or config-only changes.
+- Write the DevLog in Korean. Start with this metadata block:
+
+  ```
+  ---
+  date: YYYY-MM-DD
+  requirement: READ-01
+  author: 한인웅
+  reviewer: 한예찬
+  ---
+  ```
+
+  - `author`: the teammate who implemented it (required). `reviewer`: the teammate who approved the PR (fill in before merging).
+  - Use the Korean names 한인웅 or 한예찬 consistently.
+- Use these sections, and keep each short:
+  1. Summary: what was built, in 2–3 lines
+  2. Requirements: related IDs and whether the acceptance criteria are met
+  3. Implementation: main files and the approach
+  4. Problems & Solutions: what blocked you and how it was resolved
+  5. Verification: how it was checked and the result
+  6. Next: remaining work and TODOs
+- Do not edit past entries to rewrite history. Add a new entry or a short correction note.
+
+### 4. PR checklist
 
 Every PR description includes this checklist (mark items not applicable as N/A):
 
 - [ ] Related requirement ID(s) listed
 - [ ] `docs/PRD.md` status updated
 - [ ] Decision record added for any significant decision
+- [ ] DevLog added in `docs/devlog/` (with author and reviewer)
 - [ ] Screenshots attached for UI changes
 - [ ] `npx tsc --noEmit` and `npx expo lint` pass
