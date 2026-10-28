@@ -163,3 +163,29 @@ Format: `<type>(<scope>): <summary>`
 - Do not add dependencies for something a few lines of code or an existing Expo module can do (see Rules above).
 - Run `npx expo lint` and `npx tsc --noEmit` and fix the issues your change introduced before declaring work done.
 - Verify UI changes by running the app (or state clearly that you could not) rather than assuming they work.
+
+## Documentation Rules
+
+Documentation is part of the work: a requirement is not done until its documentation is updated in the same PR.
+
+### 1. PRD status
+
+- When a PR implements (fully or partly) a requirement from `docs/PRD.md`, update that requirement's status in the same PR (for example, mark it done or in progress).
+- If the implementation changes or clarifies the requirement or its acceptance criteria, edit the PRD to match what was actually built. Do not leave the PRD out of date.
+- Do not add, remove, or reprioritize requirements (P0/P1/P2) on your own; raise it with the team first.
+
+### 2. Decision records
+
+- Record hard-to-reverse or cross-cutting decisions in `docs/decisions/NNN-short-title.md`, numbered sequentially (`001-...`). Examples: choosing a library or backend service, data model changes, state management or folder structure conventions.
+- Keep each record short, with these sections: Context, Decision, Alternatives considered, Consequences.
+- Do not edit an accepted record to change history. Add a new record that supersedes it and link the two.
+
+### 3. PR checklist
+
+Every PR description includes this checklist (mark items not applicable as N/A):
+
+- [ ] Related requirement ID(s) listed
+- [ ] `docs/PRD.md` status updated
+- [ ] Decision record added for any significant decision
+- [ ] Screenshots attached for UI changes
+- [ ] `npx tsc --noEmit` and `npx expo lint` pass
