@@ -68,15 +68,15 @@ Format: `<type>(<scope>): <summary>`
 | test | Tests |
 
 - scope: one of `auth`, `goal`, `book`, `read`, `index`, `view`, `noti`, `admin`, `common`.
-- Summary: English, imperative mood, 50 characters or fewer, no trailing period, describing what was done.
+- Summary: Korean, 50 characters or fewer, no trailing period, describing what was done.
 - Body (optional): leave one blank line, then explain why the change was made.
-- Examples: `feat(read): implement start-time-based reading timer`, `fix(book): reuse existing book on duplicate ISBN`
+- Examples: `feat(read): 시작 시각 기반 독서 타이머 구현`, `fix(book): ISBN 중복 시 기존 도서 재사용`
 - Split commits into small logical units. Do not mix formatting or renames with functional changes.
 - Leave any `Co-authored-by` trailer added by AI tools as is.
 
 ### 3. Pull requests
 
-- The PR title uses the same format as commit messages.
+- The PR title uses the same format as commit messages (Korean summary).
 - The PR description must include:
   - Related requirement ID(s)
   - Summary of changes
