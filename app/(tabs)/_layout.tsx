@@ -5,7 +5,11 @@ import { AppIcon, type AppIconName } from '@/components/common/AppIcon';
 import { colors } from '@/constants/colors';
 
 function tabIcon(name: AppIconName) {
-  return ({ color }: { color: ColorValue }) => <AppIcon name={name} color={color} size={22} />;
+  function TabBarIcon({ color }: { color: ColorValue }) {
+    return <AppIcon name={name} color={color} size={22} />;
+  }
+
+  return TabBarIcon;
 }
 
 export default function TabLayout() {
