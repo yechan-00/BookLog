@@ -99,9 +99,10 @@ create policy "own rows" on public.user_books
 | 함수 | 하는 일 | 요구사항 | 담당 |
 | --- | --- | --- | --- |
 | `register_book(isbn, title, author, publisher, cover_url, total_pages)` | ISBN으로 `books` upsert → `user_books` 생성(상태 `wishlist`), 이미 서재에 있으면 기존 행 반환 | BOOK-02 | 한인웅 |
-| `finish_session(user_book_id, read_on, started_at, ended_at, start_page, end_page, focus_exit_count, one_line_review)` | 세션 저장 + `user_books.current_page`·`last_read_on` 갱신, 첫 세션이면 `started_on`·상태 `reading` | READ-04 | 함수 한인웅, 화면 연결 한예찬 |
+| `finish_session(user_book_id, read_on, started_at, ended_at, start_page, end_page, focus_exit_count, one_line_review)` | 세션 저장 + `user_books.current_page`·`last_read_on` 갱신, 첫 세션이면 `started_on`·상태 `reading` | READ-04 | 한인웅 |
 | `complete_book(user_book_id, rating, content)` | 리뷰 저장 + 상태 `completed`, `completed_on`, `current_page = total_pages` | READ-05 | 한인웅 |
 | `replace_goal(type, target_value, days_of_week, reminder_time)` | 기존 활성 목표 `ends_on = 오늘` + 새 목표 `starts_on = 오늘` | GOAL-01~02 | 한인웅 |
+| `daily_achievements(from, to)` (가칭) | 날짜별 적용 목표·읽은 양·달성 여부 반환. 반환 모양은 11주 수요일에 합의 (결정 기록 002) | VIEW-02~05 | 한인웅 |
 | `admin_dashboard_metrics(from, to)` | 관리자 확인 후 지표 6개 집계만 반환 | ADMIN-02 | 한인웅 |
 
 - 사용자 RPC는 `security invoker`(호출자 권한 + RLS 적용)로 만든다. `register_book`만 `books` 쓰기 때문에 `security definer` + 입력 검증.
@@ -136,7 +137,7 @@ supabase/
 - `{ data, error }`에서 `error`가 있으면 `throw`한다. 화면 훅에서 로딩·빈 상태·오류 상태로 바꾼다 (AGENTS.md 5. Data and errors).
 - `user_id`는 인자로 받지 않는다 (DB default + RLS가 처리).
 - 화면은 `hooks/`의 데이터 훅(`useLibraryBooks` 등)을 쓰고, 탭에 다시 들어올 때 `useFocusEffect`로 다시 불러온다. 캐싱 라이브러리(TanStack Query)는 지금은 넣지 않고, 필요해지면 decision record로 결정한다.
-- `data/selectors.ts`의 `calculateStreak` 같은 계산은 `utils/`로 옮겨 데이터를 인자로 받는 순수 함수로 만든다. 홈·인사이트·관리자 지표가 같은 달성률 유틸을 쓴다 (PRD 접점 4번).
+- 달성률·연속 독서일은 DB 함수 하나로 계산하고 홈·인사이트·기록·관리자 지표가 함께 쓴다 (결정 기록 002, PRD 10장 접점 4번). 먼지 단계·책꽂이 배치처럼 앱에서만 쓰는 계산은 `utils/`의 순수 함수로 옮긴다.
 - mock 데이터는 `data/`에 남겨 두되, 화면이 Supabase로 바뀐 뒤에는 화면 코드에서 import하지 않는다.
 
 ## 6. 작업 순서 (PR 단위)
