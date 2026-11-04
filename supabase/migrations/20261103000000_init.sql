@@ -178,6 +178,10 @@ create trigger on_auth_user_created
 -- 3. 권한(grant)과 RLS
 -- anon에는 아무것도 주지 않는다. 관리자는 사용자 데이터 테이블에 정책이 없다(원문 비노출).
 ------------------------------------------------------------------------------
+-- 프로젝트의 default privileges가 새 테이블을 anon·authenticated에 전체 권한으로 자동 grant할 수 있다.
+-- 그대로 두면 아래의 좁은 grant가 의미 없어지므로(예: profiles.role 직접 수정) 먼저 모두 회수한다.
+revoke all on all tables in schema public from anon, authenticated;
+
 -- profiles: 본인 조회, nickname만 수정. 관리자는 전체 조회.
 grant select on public.profiles to authenticated;
 grant update (nickname) on public.profiles to authenticated;
