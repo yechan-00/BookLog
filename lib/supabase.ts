@@ -3,6 +3,8 @@ import 'expo-sqlite/localStorage/install';
 import { createClient } from '@supabase/supabase-js';
 import { AppState, type AppStateStatus } from 'react-native';
 
+import type { Database } from '@/types/database';
+
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim();
 const supabasePublishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
@@ -28,7 +30,7 @@ if (!supabaseUrl || !supabasePublishableKey) {
   throw new Error(missingSupabaseEnvMessage());
 }
 
-export const supabase = createClient(supabaseUrl, supabasePublishableKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey, {
   auth: {
     storage: localStorage,
     autoRefreshToken: true,
