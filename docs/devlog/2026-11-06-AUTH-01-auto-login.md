@@ -11,10 +11,10 @@ reviewer:
 
 ## 2. Requirements
 
-- AUTH-01: 코드 구현 완료, 테스트 계정이 없어 실기기 확인 전 (진행 중)
+- AUTH-01: 코드 구현 완료, 테스트 계정 로그인 확인. Android 실기기 확인 전 (진행 중)
 - AUTH-02: admin·정지 계정 안내 화면까지 구현, 계정 확인 전 (진행 중)
-- AUTH-03: 마이그레이션의 RLS를 원격에 적용함. 다른 계정으로 접근 차단 확인 전 (진행 중)
-- BOOK-01·02: 백엔드 함수(`searchBooks`, `registerBook`)만 완료. 화면은 한예찬 (진행 중)
+- AUTH-03: 원격 RLS 적용. anon 차단과 본인 행 제한·권한 상승 차단 확인. 두 번째 계정으로 교차 접근 확인 전 (진행 중)
+- BOOK-01·02: 백엔드 함수(`searchBooks`, `registerBook`) 완료, 카카오 검색 확인. `register_book` 호출은 확인 전. 화면은 한예찬 (진행 중)
 
 ## 3. Implementation
 
@@ -33,12 +33,14 @@ reviewer:
 ## 5. Verification
 
 - `npx tsc --noEmit`, `npx expo lint` 통과
-- 앱 실행은 하지 못했다. `.env.local`과 Supabase 테스트 계정이 없다.
+- 원격 DB에 대해 스크립트로 확인함 (통과): anon의 profiles·books·user_books·reading_sessions 접근 차단(42501), 테스트 계정 로그인, 프로필 조회(role=user), profiles에서 본인 행만 조회, role 자가 승격 차단, 남의 user_id로 user_books insert 차단, books 직접 insert 차단
+- 카카오 책 검색 호출 성공 (status 200, 결과 반환, isbn은 "ISBN10 ISBN13" 형태)
+- 아직 확인하지 못함: Android 실기기 실행, 두 번째 user 계정으로 교차 읽기·쓰기 차단, admin·정지 계정 안내 화면, `register_book` RPC 호출
 
 ## 6. Next
 
-- Supabase 대시보드에서 테스트 계정(user·admin)을 만들고 `.env.local`에 키를 넣은 뒤 Android 실기기로 확인
-- 다른 계정으로 RLS 차단 확인
-- 카카오 REST 키 발급 후 검색 호출 확인
+- Android 실기기로 앱 실행 확인 (user 진입, admin·정지 안내 화면)
+- 두 번째 user 계정으로 교차 접근 차단 확인
+- `register_book` 호출은 화면(한예찬)과 연결할 때 확인
 - 활성 목표가 없으면 온보딩으로 보내는 분기는 GOAL-01에서 추가
 - 책 상세 라우트 파라미터를 `userBookId`로 맞추는 작업(10주 수요일 합의)
