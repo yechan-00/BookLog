@@ -45,3 +45,20 @@ export interface LibraryBook {
   completedAt: string | null;
   lastReadAt: string | null;
 }
+
+/** One row of a Kakao book search, before the user adds it to the shelf. */
+export interface BookSearchResult {
+  /** Raw Kakao value: "ISBN10 ISBN13", either part may be missing. Empty when unknown. */
+  isbn: string;
+  title: string;
+  author: string;
+  publisher: string;
+  coverImageUrl: string | null;
+}
+
+export interface RegisteredBook {
+  userBookId: string;
+  bookId: string;
+  status: BookStatus;
+  totalPages: number;
+}
