@@ -42,3 +42,12 @@ export interface BookReview {
   rating: number;
   review: string;
 }
+
+/** The session being read right now. Kept on the device so it survives an app kill. */
+export interface ActiveReadingSession {
+  userBookId: string;
+  /** ISO 8601. Elapsed time is always `now - startedAt`. */
+  startedAt: string;
+  startPage: number;
+  focusExitCount: number;
+}
