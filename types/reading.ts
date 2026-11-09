@@ -29,8 +29,8 @@ export interface BookIndex {
   bookId: string;
   sessionId: string | null;
   page: number;
-  quote: string;
-  memo: string | null;
+  title: string;
+  quote: string | null;
   createdAt: string;
 }
 

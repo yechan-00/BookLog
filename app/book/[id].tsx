@@ -148,8 +148,8 @@ export default function BookDetailScreen() {
           indexes.map((index) => (
             <View key={index.id} style={styles.panel}>
               <Text style={styles.factLabel}>p.{index.page}</Text>
-              <Text style={styles.quote}>{index.quote}</Text>
-              {index.memo ? <Text style={styles.meta}>메모 · {index.memo}</Text> : null}
+              <Text style={styles.quote}>{index.title}</Text>
+              {index.quote ? <Text style={styles.meta}>{index.quote}</Text> : null}
             </View>
           ))
         )}

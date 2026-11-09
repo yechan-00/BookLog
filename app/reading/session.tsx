@@ -107,10 +107,10 @@ export default function ReadingSessionScreen() {
           <View style={styles.list}>
             <SectionHeader title="이번 세션의 인덱스" />
             {indexes.map((index) => (
-              <View key={`${index.page}-${index.quote}`} style={styles.item}>
+              <View key={`${index.page}-${index.title}`} style={styles.item}>
                 <Text style={styles.itemLabel}>p.{index.page}</Text>
-                <Text style={styles.itemBody}>{index.quote}</Text>
-                {index.memo ? <Text style={styles.itemMemo}>{index.memo}</Text> : null}
+                <Text style={styles.itemBody}>{index.title}</Text>
+                {index.quote ? <Text style={styles.itemMemo}>{index.quote}</Text> : null}
               </View>
             ))}
           </View>

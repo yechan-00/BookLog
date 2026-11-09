@@ -9,8 +9,8 @@ import { typography } from '@/constants/theme';
 
 export interface DraftIndex {
   page: number;
+  title: string;
   quote: string;
-  memo: string;
 }
 
 type IndexFormModalProps = {
@@ -22,8 +22,8 @@ type IndexFormModalProps = {
 
 export function IndexFormModal({ visible, initialPage, onClose, onSave }: IndexFormModalProps) {
   const [page, setPage] = useState(String(initialPage));
+  const [title, setTitle] = useState('');
   const [quote, setQuote] = useState('');
-  const [memo, setMemo] = useState('');
   const [error, setError] = useState('');
 
   const handleSave = () => {
@@ -33,14 +33,14 @@ export function IndexFormModal({ visible, initialPage, onClose, onSave }: IndexF
       return;
     }
 
-    if (quote.trim().length === 0) {
-      setError('기억하고 싶은 문장을 입력해 주세요.');
+    if (title.trim().length === 0) {
+      setError('짧은 제목을 입력해 주세요.');
       return;
     }
 
-    onSave({ page: parsedPage, quote: quote.trim(), memo: memo.trim() });
+    onSave({ page: parsedPage, title: title.trim(), quote: quote.trim() });
+    setTitle('');
     setQuote('');
-    setMemo('');
     setError('');
     onClose();
   };
@@ -55,17 +55,16 @@ export function IndexFormModal({ visible, initialPage, onClose, onSave }: IndexF
         placeholder="87"
       />
       <TextField
+        label="제목"
+        value={title}
+        onChangeText={setTitle}
+        placeholder="짧은 제목"
+      />
+      <TextField
         label="문장"
         value={quote}
         onChangeText={setQuote}
-        placeholder="기억하고 싶은 문장"
-        multiline
-      />
-      <TextField
-        label="메모"
-        value={memo}
-        onChangeText={setMemo}
-        placeholder="짧은 메모, 없어도 됩니다"
+        placeholder="기억하고 싶은 문장, 없어도 됩니다"
         multiline
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
