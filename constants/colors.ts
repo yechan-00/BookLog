@@ -13,6 +13,7 @@ export const colors = {
   progressFill: '#7C5340',
   positive: '#6D7B58',
   warning: '#8C5346',
+  error: '#8C3A32',
   shelf: '#C6A57A',
   shelfEdge: '#A8875C',
   overlay: 'rgba(60, 42, 30, 0.4)',

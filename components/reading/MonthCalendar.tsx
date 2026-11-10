@@ -4,6 +4,8 @@ import { colors } from '@/constants/colors';
 import { radius, typography } from '@/constants/theme';
 import { getMonthGrid, shiftMonth } from '@/utils/calendar';
 import { formatMonthTitle } from '@/utils/format';
+import type { CalendarDayMark } from '@/utils/readingCalendar';
+import { achievementLabel } from '@/utils/readingPeriod';
 
 const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -11,7 +13,7 @@ type MonthCalendarProps = {
   visibleMonth: Date;
   selectedDate: string;
   todayKey: string;
-  readingDates: ReadonlySet<string>;
+  marks: Readonly<Record<string, CalendarDayMark>>;
   onSelectDate: (dateKey: string) => void;
   onChangeMonth: (nextMonth: Date) => void;
 };
@@ -20,7 +22,7 @@ export function MonthCalendar({
   visibleMonth,
   selectedDate,
   todayKey,
-  readingDates,
+  marks,
   onSelectDate,
   onChangeMonth,
 }: MonthCalendarProps) {
@@ -60,15 +62,18 @@ export function MonthCalendar({
             return <View key={`empty-${index}`} style={styles.cell} />;
           }
 
+          const mark = marks[cell.dateKey];
           const isSelected = cell.dateKey === selectedDate;
           const isToday = cell.dateKey === todayKey;
-          const hasReading = readingDates.has(cell.dateKey);
+          const achieved = mark?.achievement === 'achieved';
+          const hasReading = mark?.hasReading === true;
 
           return (
             <Pressable
               key={cell.dateKey}
               accessibilityRole="button"
-              accessibilityLabel={cell.dateKey}
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`${cell.dateKey}, ${hasReading ? '독서 기록 있음' : '독서 기록 없음'}, ${achievementLabel(mark?.achievement ?? 'none')}`}
               onPress={() => onSelectDate(cell.dateKey as string)}
               style={styles.cell}
             >
@@ -83,7 +88,13 @@ export function MonthCalendar({
                   {cell.date?.getDate()}
                 </Text>
               </View>
-              <View style={[styles.dot, hasReading && !isSelected && styles.dotVisible]} />
+              <View
+                style={[
+                  styles.dot,
+                  !isSelected && achieved && styles.dotAchieved,
+                  !isSelected && !achieved && hasReading && styles.dotVisible,
+                ]}
+              />
             </Pressable>
           );
         })}
@@ -158,5 +169,8 @@ const styles = StyleSheet.create({
   },
   dotVisible: {
     backgroundColor: colors.accent,
+  },
+  dotAchieved: {
+    backgroundColor: colors.positive,
   },
 });

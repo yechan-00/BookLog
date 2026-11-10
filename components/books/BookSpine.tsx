@@ -4,6 +4,8 @@ type BookSpineProps = {
   title: string;
   color: string;
   onPress?: () => void;
+  /** Display width in points. Omitted width keeps the original spine. */
+  width?: number | null;
   /**
    * Reserved for a later dust layer. 0 is a clean spine.
    * This version does not draw dust.
@@ -11,13 +13,13 @@ type BookSpineProps = {
   dustLevel?: number;
 };
 
-export function BookSpine({ title, color, onPress }: BookSpineProps) {
+export function BookSpine({ title, color, onPress, width }: BookSpineProps) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      style={({ pressed }) => [styles.spine, { backgroundColor: color }, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.spine, { backgroundColor: color, width: width ?? 36 }, pressed && styles.pressed]}
     >
       <View style={styles.titleWrap}>
         <Text numberOfLines={1} style={styles.title}>
@@ -30,7 +32,6 @@ export function BookSpine({ title, color, onPress }: BookSpineProps) {
 
 const styles = StyleSheet.create({
   spine: {
-    width: 36,
     height: 132,
     borderRadius: 3,
     alignItems: 'center',

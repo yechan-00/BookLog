@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
@@ -10,30 +10,40 @@ type SheetModalProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  avoidKeyboard?: boolean;
 };
 
-export function SheetModal({ visible, title, onClose, children }: SheetModalProps) {
+export function SheetModal({ visible, title, onClose, children, avoidKeyboard = false }: SheetModalProps) {
   const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <Pressable accessibilityRole="button" accessibilityLabel="닫기" style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
-              <Text style={styles.close}>닫기</Text>
-            </Pressable>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={avoidKeyboard ? (Platform.OS === 'ios' ? 'padding' : 'height') : undefined}
+        enabled={avoidKeyboard}
+      >
+        <View style={styles.overlay}>
+          <Pressable accessibilityRole="button" accessibilityLabel="닫기" style={styles.backdrop} onPress={onClose} />
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.xl }]}>
+            <View style={styles.header}>
+              <Text style={styles.title}>{title}</Text>
+              <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
+                <Text style={styles.close}>닫기</Text>
+              </Pressable>
+            </View>
+            {children}
           </View>
-          {children}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

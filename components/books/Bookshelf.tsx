@@ -2,10 +2,17 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { BookSpine } from '@/components/books/BookSpine';
 import { colors } from '@/constants/colors';
-import type { LibraryBook } from '@/types/book';
+
+type ShelfBook = {
+  id: string;
+  bookId: string;
+  title: string;
+  color: string;
+  width?: number | null;
+};
 
 type BookshelfProps = {
-  books: LibraryBook[];
+  books: ShelfBook[];
   onPressBook: (bookId: string) => void;
 };
 
@@ -21,8 +28,9 @@ export function Bookshelf({ books, onPressBook }: BookshelfProps) {
           <BookSpine
             key={book.id}
             title={book.title}
-            color={book.spineColor}
-            onPress={() => onPressBook(book.id)}
+            color={book.color}
+            width={book.width}
+            onPress={() => onPressBook(book.bookId)}
           />
         ))}
       </ScrollView>

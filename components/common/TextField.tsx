@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
@@ -11,6 +12,8 @@ type TextFieldProps = {
   multiline?: boolean;
   keyboardType?: 'default' | 'number-pad';
   editable?: boolean;
+  error?: string;
+  emphasizeFocus?: boolean;
 };
 
 export function TextField({
@@ -21,7 +24,12 @@ export function TextField({
   multiline = false,
   keyboardType = 'default',
   editable = true,
+  error,
+  emphasizeFocus = false,
 }: TextFieldProps) {
+  const [isFocused, setIsFocused] = useState(false);
+  const borderColor = error ? colors.error : emphasizeFocus && isFocused ? colors.accent : colors.border;
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
@@ -34,8 +42,17 @@ export function TextField({
         keyboardType={keyboardType}
         editable={editable}
         textAlignVertical={multiline ? 'top' : 'center'}
-        style={[styles.input, multiline && styles.multiline, !editable && styles.readonly]}
+        onFocus={emphasizeFocus ? () => setIsFocused(true) : undefined}
+        onBlur={emphasizeFocus ? () => setIsFocused(false) : undefined}
+        accessibilityHint={error}
+        style={[
+          styles.input,
+          { borderColor },
+          multiline && styles.multiline,
+          !editable && styles.readonly,
+        ]}
       />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -64,5 +81,9 @@ const styles = StyleSheet.create({
   },
   readonly: {
     color: colors.textSecondary,
+  },
+  error: {
+    ...typography.caption,
+    color: colors.error,
   },
 });
