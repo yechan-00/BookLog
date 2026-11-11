@@ -1,5 +1,6 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { SignInForm } from '@/components/auth/SignInForm';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { colors } from '@/constants/colors';
@@ -37,6 +38,7 @@ export function AuthGateScreen({ status, errorMessage, onRetry }: AuthGateScreen
           description="서비스 이용이 제한되었습니다. 문의가 필요하면 운영자에게 연락해 주세요."
         />
       ) : null}
+      {status === 'signedOut' ? <SignInForm /> : null}
       {status === 'error' ? (
         <>
           <EmptyState

@@ -11,6 +11,8 @@ type ScreenProps = {
   topInset?: boolean;
   includeBottomInset?: boolean;
   contentContainerStyle?: ViewStyle;
+  /** Optional screen background. Defaults to the global app background. */
+  backgroundColor?: string;
 };
 
 export function Screen({
@@ -19,6 +21,7 @@ export function Screen({
   topInset = false,
   includeBottomInset = false,
   contentContainerStyle,
+  backgroundColor = colors.background,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const paddingTop = topInset ? insets.top + spacing.md : spacing.lg;
@@ -26,13 +29,15 @@ export function Screen({
 
   if (!scroll) {
     return (
-      <View style={[styles.container, styles.content, { paddingTop, paddingBottom }]}>{children}</View>
+      <View style={[styles.container, styles.content, { paddingTop, paddingBottom, backgroundColor }]}>
+        {children}
+      </View>
     );
   }
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor }]}
       contentContainerStyle={[styles.content, { paddingTop, paddingBottom }, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
@@ -45,10 +50,10 @@ export function Screen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   content: {
     paddingHorizontal: spacing.xl,
     gap: spacing.lg,
   },
 });
+

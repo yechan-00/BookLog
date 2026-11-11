@@ -6,14 +6,28 @@ type BookCoverProps = {
   title: string;
   color: string;
   width?: number;
+  height?: number;
+  cornerRadius?: number;
   imageUrl?: string;
 };
 
-export function BookCover({ title, color, width = 56, imageUrl }: BookCoverProps) {
-  const height = Math.round(width * 1.48);
+export function BookCover({
+  title,
+  color,
+  width = 56,
+  height,
+  cornerRadius = 4,
+  imageUrl,
+}: BookCoverProps) {
+  const coverHeight = height ?? Math.round(width * 1.48);
 
   return (
-    <View style={[styles.cover, { width, height, backgroundColor: color }]}>
+    <View
+      style={[
+        styles.cover,
+        { width, height: coverHeight, backgroundColor: color, borderRadius: cornerRadius },
+      ]}
+    >
       <View style={styles.edge} />
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={styles.image} />

@@ -13,5 +13,10 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "lib/notifications/schedulePlan.test.ts",
+    "utils/readingStats.test.ts",
+    "utils/shelf.test.ts"
   ]
 }

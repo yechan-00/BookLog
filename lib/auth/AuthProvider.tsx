@@ -4,7 +4,7 @@ import { fetchMyProfile } from '@/lib/api/profile';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/types/user';
 
-export type AuthStatus = 'loading' | 'ready' | 'suspended' | 'admin' | 'error';
+export type AuthStatus = 'loading' | 'ready' | 'signedOut' | 'suspended' | 'admin' | 'error';
 
 interface AuthContextValue {
   status: AuthStatus;
@@ -12,6 +12,7 @@ interface AuthContextValue {
   profile: Profile | null;
   errorMessage: string | null;
   retry: () => void;
+  signIn: (email: string, password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -19,9 +20,41 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const testAccountEmail = process.env.EXPO_PUBLIC_TEST_ACCOUNT_EMAIL?.trim();
 const testAccountPassword = process.env.EXPO_PUBLIC_TEST_ACCOUNT_PASSWORD;
 
-async function resolveUserId(): Promise<string> {
+type AuthStage = 'session' | 'sign-in' | 'profile';
+
+function logAuthFailure(stage: AuthStage, error: unknown) {
+  if (!__DEV__) {
+    return;
+  }
+
+  const details =
+    typeof error === 'object' && error !== null
+      ? (error as { name?: unknown; code?: unknown; status?: unknown })
+      : {};
+  const name = typeof details.name === 'string' ? details.name : 'unknown';
+  const code = typeof details.code === 'string' ? details.code : 'none';
+  const status = typeof details.status === 'number' ? String(details.status) : 'none';
+  console.warn(`[auth] stage=${stage} name=${name} code=${code} status=${status}`);
+}
+
+function signInFailureMessage(error: { message: string; code?: string } | null): string {
+  const code = error?.code ?? '';
+  const message = error?.message ?? '';
+  if (code === 'invalid_credentials' || /invalid login credentials|invalid_credentials/i.test(message)) {
+    return '이메일 또는 비밀번호가 올바르지 않습니다.';
+  }
+
+  if (code === 'email_not_confirmed') {
+    return '이메일 인증이 끝나지 않은 계정입니다. Supabase에서 계정을 확인한 뒤 다시 로그인해 주세요.';
+  }
+
+  return '로그인에 실패했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.';
+}
+
+async function resolveUserId(): Promise<string | null> {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) {
+    logAuthFailure('session', sessionError);
     throw sessionError;
   }
 
@@ -30,9 +63,7 @@ async function resolveUserId(): Promise<string> {
   }
 
   if (!testAccountEmail || !testAccountPassword) {
-    throw new Error(
-      '테스트 계정 환경변수(EXPO_PUBLIC_TEST_ACCOUNT_EMAIL, EXPO_PUBLIC_TEST_ACCOUNT_PASSWORD)가 비어 있습니다.',
-    );
+    return null;
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -40,6 +71,7 @@ async function resolveUserId(): Promise<string> {
     password: testAccountPassword,
   });
   if (error) {
+    logAuthFailure('sign-in', error);
     throw error;
   }
 
@@ -67,7 +99,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       try {
         const id = await resolveUserId();
-        const loadedProfile = await fetchMyProfile(id);
+        if (!id) {
+          if (isCancelled) {
+            return;
+          }
+          setUserId(null);
+          setProfile(null);
+          setErrorMessage(null);
+          setStatus('signedOut');
+          return;
+        }
+
+        let loadedProfile: Profile;
+        try {
+          loadedProfile = await fetchMyProfile(id);
+        } catch (profileError) {
+          logAuthFailure('profile', profileError);
+          throw profileError;
+        }
         if (isCancelled) {
           return;
         }
@@ -98,9 +147,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAttempt((count) => count + 1);
   }, []);
 
+  const signIn = useCallback(async (email: string, password: string) => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || password.length === 0) {
+      throw new Error('이메일과 비밀번호를 입력해 주세요.');
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    });
+    if (error || !data.user) {
+      logAuthFailure('sign-in', error);
+      throw new Error(signInFailureMessage(error));
+    }
+
+    try {
+      const loadedProfile = await fetchMyProfile(data.user.id);
+      setUserId(data.user.id);
+      setProfile(loadedProfile);
+      setErrorMessage(null);
+      setStatus(statusOf(loadedProfile));
+    } catch (profileError) {
+      logAuthFailure('profile', profileError);
+      setUserId(data.user.id);
+      setProfile(null);
+      setErrorMessage(profileError instanceof Error ? profileError.message : '프로필을 불러오지 못했습니다.');
+      setStatus('error');
+    }
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status, userId, profile, errorMessage, retry }),
-    [status, userId, profile, errorMessage, retry],
+    () => ({ status, userId, profile, errorMessage, retry, signIn }),
+    [status, userId, profile, errorMessage, retry, signIn],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
