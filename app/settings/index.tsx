@@ -1,4 +1,4 @@
-import { Stack, useFocusEffect } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -285,6 +285,17 @@ export default function SettingsScreen() {
           <Row label="이름" value="북로그" />
           <Row label="버전" value="1.0.0" />
         </View>
+
+        {__DEV__ ? (
+          <View style={styles.group}>
+            <Text style={styles.groupTitle}>개발</Text>
+            <PrimaryButton
+              label="홈 미리보기"
+              variant="secondary"
+              onPress={() => router.push('/dev/home-preview')}
+            />
+          </View>
+        ) : null}
       </Screen>
     </>
   );

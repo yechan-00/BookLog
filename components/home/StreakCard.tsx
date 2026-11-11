@@ -1,60 +1,148 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { libraryTheme } from '@/constants/libraryTheme';
-import { radius, spacing, typography } from '@/constants/theme';
+import { AppIcon } from '@/components/common/AppIcon';
+import { HomeCard, HomeCardTitle, homeTwinCardStyle } from '@/components/home/HomeCard';
+import { homeTheme } from '@/constants/homeTheme';
+import type { WeekDayDuration } from '@/utils/homeWeekStats';
 import type { ReadingStreak } from '@/utils/readingStreak';
 
 type StreakCardProps = {
   streak: ReadingStreak;
+  weekDays?: readonly WeekDayDuration[];
 };
 
-export function StreakCard({ streak }: StreakCardProps) {
+export function StreakCard({ streak, weekDays }: StreakCardProps) {
   const hasStreak = streak.days > 0;
+  const showDots = Boolean(weekDays && weekDays.some((day) => !day.isFuture && day.durationSeconds > 0));
 
   return (
-    <View style={styles.card}>
-      <View style={styles.badge}>
-        <Text style={styles.badgeLabel}>연속 독서</Text>
+    <HomeCard style={homeTwinCardStyle}>
+      <HomeCardTitle title="연속 독서" />
+
+      <View style={styles.hero}>
+        <View style={styles.flameWrap}>
+          <AppIcon name="streak" size={24} color={homeTheme.flame} />
+        </View>
+        {hasStreak ? (
+          <View style={styles.heroCopy}>
+            <Text style={styles.daysLine} numberOfLines={1}>
+              <Text style={styles.daysNumber}>{streak.days}</Text>
+              <Text style={styles.daysUnit}>일 연속</Text>
+            </Text>
+            <Text style={styles.cheer} numberOfLines={1}>
+              멋져요!
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.heroCopy}>
+            <Text style={styles.emptyTitle} numberOfLines={2}>
+              첫 독서를 시작해요
+            </Text>
+            <Text style={styles.cheer} numberOfLines={1}>
+              오늘부터 시작해요
+            </Text>
+          </View>
+        )}
       </View>
-      {hasStreak ? <Text style={styles.daysAccent}>{streak.days}일</Text> : null}
-      <Text style={styles.title}>{hasStreak ? '연속 독서 중' : '연속 독서를 시작해 보세요'}</Text>
-      <Text style={styles.note}>목표 요일만 세며, 오늘 진행 중은 바로 끊지 않습니다.</Text>
-    </View>
+
+      {showDots && weekDays ? (
+        <View style={styles.dots} accessibilityLabel="이번 주 독서 표시">
+          {weekDays.map((day) => {
+            const filled = !day.isFuture && day.durationSeconds > 0;
+            return (
+              <View
+                key={day.dateKey}
+                style={[styles.dot, filled ? styles.dotFilled : styles.dotEmpty, day.isToday && styles.dotToday]}
+              />
+            );
+          })}
+        </View>
+      ) : null}
+
+      <View style={styles.messageBox}>
+        <Text style={styles.message} numberOfLines={1}>
+          {hasStreak ? '꾸준함이 습관을 만들어요.' : '오늘도 한 페이지씩.'}
+        </Text>
+      </View>
+    </HomeCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: libraryTheme.surface,
-    borderColor: libraryTheme.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.xs,
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: libraryTheme.softBrown,
-    borderRadius: radius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    marginBottom: 4,
+  flameWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: homeTheme.softFill,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  badgeLabel: {
-    ...typography.caption,
-    color: libraryTheme.primaryBrown,
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  daysLine: {
+    color: homeTheme.text,
+  },
+  daysNumber: {
+    fontSize: 26,
+    lineHeight: 30,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
-  title: {
-    ...typography.title,
-    color: libraryTheme.darkBrown,
+  daysUnit: {
+    fontSize: 14,
+    lineHeight: 22,
+    fontWeight: '600',
   },
-  daysAccent: {
-    ...typography.bodyStrong,
-    color: libraryTheme.primaryBrown,
+  emptyTitle: {
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+    color: homeTheme.text,
   },
-  note: {
-    ...typography.caption,
-    color: libraryTheme.textSecondary,
+  cheer: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: homeTheme.textSecondary,
+  },
+  dots: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  dotFilled: {
+    backgroundColor: homeTheme.primarySoft,
+  },
+  dotEmpty: {
+    backgroundColor: homeTheme.progressTrack,
+  },
+  dotToday: {
+    borderWidth: 1,
+    borderColor: homeTheme.accentLine,
+  },
+  messageBox: {
+    marginTop: 12,
+    backgroundColor: homeTheme.softFill,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  message: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: homeTheme.textSecondary,
   },
 });

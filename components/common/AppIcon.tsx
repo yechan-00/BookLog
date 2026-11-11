@@ -14,6 +14,9 @@ const iconMap = {
   streak: { ios: 'flame.fill', android: 'local_fire_department' },
   search: { ios: 'magnifyingglass', android: 'search' },
   clear: { ios: 'xmark.circle.fill', android: 'cancel' },
+  chevronRight: { ios: 'chevron.right', android: 'chevron_right' },
+  person: { ios: 'person.fill', android: 'person' },
+  bookOpen: { ios: 'book.fill', android: 'menu_book' },
 } as const satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type AppIconName = keyof typeof iconMap;

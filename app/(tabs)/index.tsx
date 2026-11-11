@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { CurrentReadingCard } from '@/components/home/CurrentReadingCard';
 import { HomeHeader } from '@/components/home/HomeHeader';
@@ -8,14 +9,16 @@ import { StreakCard } from '@/components/home/StreakCard';
 import { TodayGoalCard } from '@/components/home/TodayGoalCard';
 import { WeekStatusCard } from '@/components/home/WeekStatusCard';
 import { Screen } from '@/components/common/Screen';
-import { SectionHeader } from '@/components/common/SectionHeader';
-import { libraryTheme } from '@/constants/libraryTheme';
+import { homeTheme } from '@/constants/homeTheme';
 import { useFocusData } from '@/hooks/useFocusData';
 import { startOfToday, toDateKey } from '@/utils/date';
+import { homeWeekStats } from '@/utils/homeWeekStats';
 import { homeReadingSummary } from '@/utils/readingSummary';
 import { loadCurrentBook, loadReadingHistory } from '@/utils/readingSource';
 
 export default function HomeScreen() {
+  const { width } = useWindowDimensions();
+  const stackMid = width < 340;
   const today = startOfToday();
   const todayKey = toDateKey(today);
   const loadHistory = useCallback(() => loadReadingHistory(), []);
@@ -23,13 +26,14 @@ export default function HomeScreen() {
   const historySource = useFocusData(loadHistory);
   const bookSource = useFocusData(loadBook);
   const summary = historySource.status === 'ready' ? homeReadingSummary(todayKey, historySource.data) : null;
+  const weekStats =
+    historySource.status === 'ready' ? homeWeekStats(todayKey, historySource.data.activities) : null;
   const book = bookSource.status === 'ready' ? bookSource.data : null;
 
   return (
-    <Screen topInset backgroundColor={libraryTheme.background}>
-      <HomeHeader today={today} onOpenPreview={() => router.push('/dev/home-preview')} />
+    <Screen topInset backgroundColor={homeTheme.background} contentContainerStyle={styles.content}>
+      <HomeHeader today={today} />
 
-      <SectionHeader title="지금 읽는 책" />
       {bookSource.status === 'loading' ? (
         <HomeSourceState kind="loading" />
       ) : bookSource.status === 'error' ? (
@@ -39,39 +43,74 @@ export default function HomeScreen() {
       ) : (
         <HomeSourceState
           kind="empty"
-          title="첫 번째 독서를 시작해 볼까요?"
+          title="아직 읽고 있는 책이 없어요."
           description="서재에 책을 등록하면 이곳에 이어 읽기가 나타납니다."
           actionLabel="책 등록하기"
           onAction={() => router.push('/book/search')}
         />
       )}
 
-      <SectionHeader title="오늘의 목표" />
-      {historySource.status === 'loading' ? (
-        <HomeSourceState kind="loading" />
-      ) : historySource.status === 'error' ? (
-        <HomeSourceState kind="error" title="독서 정보를 불러오지 못했어요." description={historySource.message} />
-      ) : summary ? (
-        <TodayGoalCard goal={summary.goal} />
-      ) : null}
+      <View style={[styles.midRow, stackMid && styles.midStacked]}>
+        {historySource.status === 'loading' ? (
+          <>
+            <View style={[styles.midItem, stackMid && styles.midItemStacked]}>
+              <HomeSourceState kind="loading" title="목표를 불러오는 중이에요" />
+            </View>
+            <View style={[styles.midItem, stackMid && styles.midItemStacked]}>
+              <HomeSourceState kind="loading" title="연속 기록을 불러오는 중이에요" />
+            </View>
+          </>
+        ) : historySource.status === 'error' ? (
+          <View style={styles.midFull}>
+            <HomeSourceState
+              kind="error"
+              title="독서 정보를 불러오지 못했어요."
+              description={historySource.message}
+            />
+          </View>
+        ) : summary && weekStats ? (
+          <>
+            <View style={[styles.midItem, stackMid && styles.midItemStacked]}>
+              <TodayGoalCard goal={summary.goal} />
+            </View>
+            <View style={[styles.midItem, stackMid && styles.midItemStacked]}>
+              <StreakCard streak={summary.streak} weekDays={weekStats.days} />
+            </View>
+          </>
+        ) : null}
+      </View>
 
-      <SectionHeader title="이번 주 독서" />
       {historySource.status === 'loading' ? (
-        <HomeSourceState kind="loading" />
-      ) : historySource.status === 'error' ? (
-        <HomeSourceState kind="error" title="독서 정보를 불러오지 못했어요." description={historySource.message} />
-      ) : summary ? (
-        <WeekStatusCard week={summary.week} todayKey={todayKey} />
-      ) : null}
-
-      <SectionHeader title="연속 독서" />
-      {historySource.status === 'loading' ? (
-        <HomeSourceState kind="loading" />
-      ) : historySource.status === 'error' ? (
-        <HomeSourceState kind="error" title="독서 정보를 불러오지 못했어요." description={historySource.message} />
-      ) : summary ? (
-        <StreakCard streak={summary.streak} />
+        <HomeSourceState kind="loading" title="주간 기록을 불러오는 중이에요" />
+      ) : historySource.status === 'error' ? null : weekStats ? (
+        <WeekStatusCard weekStats={weekStats} />
       ) : null}
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  content: {
+    gap: 12,
+    paddingBottom: 24,
+  },
+  midRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  midStacked: {
+    flexDirection: 'column',
+  },
+  midItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  midItemStacked: {
+    flex: undefined,
+    width: '100%',
+  },
+  midFull: {
+    flex: 1,
+  },
+});

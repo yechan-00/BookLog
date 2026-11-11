@@ -1,179 +1,177 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { libraryTheme } from '@/constants/libraryTheme';
-import { radius, spacing, typography } from '@/constants/theme';
-import { achievementLabel, type DayAchievement } from '@/utils/readingPeriod';
-import type { WeeklyAchievement } from '@/utils/weeklyAchievement';
+import { AppIcon } from '@/components/common/AppIcon';
+import { HomeCard, HomeCardTitle } from '@/components/home/HomeCard';
+import { homeTheme } from '@/constants/homeTheme';
+import { formatDuration } from '@/utils/format';
+import type { HomeWeekStats } from '@/utils/homeWeekStats';
 
 type WeekStatusCardProps = {
-  week: WeeklyAchievement;
-  todayKey: string;
+  weekStats: HomeWeekStats;
 };
 
-export function WeekStatusCard({ week, todayKey }: WeekStatusCardProps) {
-  const summary =
-    week.rate === null ? '판정할 목표 요일이 아직 없습니다' : `확정 ${week.achievedCount}/${week.decidedCount}일 · ${week.rate}%`;
+const BAR_MAX = 64;
+
+export function WeekStatusCard({ weekStats }: WeekStatusCardProps) {
+  const { width } = useWindowDimensions();
+  const stacked = width < 360;
+  const hasReading = weekStats.totalSeconds > 0;
+  const maxSeconds = Math.max(...weekStats.days.map((day) => day.durationSeconds), 0);
+  const delta = weekStats.deltaSeconds;
+  const deltaLabel =
+    delta === null || weekStats.previousWeekSeconds === 0
+      ? null
+      : delta > 0
+        ? `지난주보다 ${formatDuration(delta)} 더`
+        : delta < 0
+          ? `지난주보다 ${formatDuration(Math.abs(delta))} 덜`
+          : '지난주와 같아요';
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>이번 주 독서</Text>
-      <Text style={styles.summary}>{summary}</Text>
-      <View style={styles.days}>
-        {week.days.map((day) => {
-          const isToday = day.dateKey === todayKey;
-          return (
-            <View key={day.dateKey} style={styles.day}>
-              <Text style={[styles.weekday, isToday && styles.weekdayToday]}>{day.label}</Text>
-              <View style={[styles.marker, markerStyle(day.achievement), isToday && styles.markerToday]}>
-                <Text style={[styles.markerGlyph, glyphStyle(day.achievement)]}>{markerGlyph(day.achievement)}</Text>
-              </View>
-              <Text style={[styles.state, isToday && styles.stateToday]}>{achievementLabel(day.achievement)}</Text>
+    <HomeCard>
+      <HomeCardTitle title="이번 주 독서" />
+      {!hasReading ? (
+        <Text style={styles.empty} numberOfLines={1}>
+          이번 주 기록이 없어요.
+        </Text>
+      ) : (
+        <View style={[styles.body, stacked && styles.bodyStacked]}>
+          <View style={[styles.summary, stacked && styles.summaryStacked]}>
+            <View style={styles.iconWrap}>
+              <AppIcon name="bookOpen" size={18} color={homeTheme.primary} />
             </View>
-          );
-        })}
-      </View>
-      <Text style={styles.note}>미래 날짜와 목표 없는 날은 실패로 보지 않습니다.</Text>
-    </View>
+            <View style={styles.summaryCopy}>
+              <Text style={styles.summaryLabel}>총 독서 시간</Text>
+              <Text style={styles.summaryValue}>{formatDuration(weekStats.totalSeconds)}</Text>
+              {deltaLabel ? (
+                <Text style={styles.delta} numberOfLines={1}>
+                  {deltaLabel}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={[styles.chart, stacked && styles.chartStacked]} accessibilityLabel="요일별 독서 시간">
+            {weekStats.days.map((day) => {
+              const height =
+                maxSeconds <= 0 || day.isFuture || day.durationSeconds <= 0
+                  ? 3
+                  : Math.max(6, Math.round((day.durationSeconds / maxSeconds) * BAR_MAX));
+              const isPeak = !day.isFuture && day.durationSeconds > 0 && day.durationSeconds === maxSeconds;
+              return (
+                <View key={day.dateKey} style={styles.barCol}>
+                  <View
+                    style={[
+                      styles.bar,
+                      {
+                        height,
+                        backgroundColor: day.isFuture
+                          ? 'transparent'
+                          : isPeak
+                            ? homeTheme.primary
+                            : day.isToday
+                              ? homeTheme.progress
+                              : homeTheme.softFill,
+                      },
+                    ]}
+                  />
+                  <Text style={[styles.weekday, day.isToday && styles.weekdayToday]}>{day.label}</Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      )}
+    </HomeCard>
   );
 }
 
-function markerGlyph(achievement: DayAchievement): string {
-  switch (achievement) {
-    case 'achieved':
-      return '✓';
-    case 'missed':
-      return '–';
-    case 'pending':
-      return '·';
-    case 'upcoming':
-      return '◦';
-    case 'off':
-      return '~';
-    case 'unknown':
-      return '?';
-    default:
-      return '·';
-  }
-}
-
-function markerStyle(achievement: DayAchievement) {
-  if (achievement === 'achieved') {
-    return styles.markerAchieved;
-  }
-  if (achievement === 'missed') {
-    return styles.markerMissed;
-  }
-  if (achievement === 'pending') {
-    return styles.markerPending;
-  }
-  if (achievement === 'upcoming') {
-    return styles.markerUpcoming;
-  }
-  return styles.markerQuiet;
-}
-
-function glyphStyle(achievement: DayAchievement) {
-  if (achievement === 'achieved') {
-    return styles.glyphOnDark;
-  }
-  if (achievement === 'pending') {
-    return styles.glyphAccent;
-  }
-  return styles.glyphMuted;
-}
-
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: libraryTheme.surface,
-    borderColor: libraryTheme.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.md,
+  body: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 12,
   },
-  title: {
-    ...typography.bodyStrong,
-    color: libraryTheme.darkBrown,
+  bodyStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   summary: {
-    ...typography.body,
-    color: libraryTheme.textSecondary,
-  },
-  days: {
+    flex: 1.1,
     flexDirection: 'row',
-    gap: 2,
+    alignItems: 'flex-start',
+    gap: 10,
+    minWidth: 0,
   },
-  day: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
+  summaryStacked: {
+    flex: undefined,
   },
-  weekday: {
-    ...typography.caption,
-    color: libraryTheme.textSecondary,
-    fontWeight: '600',
-  },
-  weekdayToday: {
-    color: libraryTheme.primaryBrown,
-  },
-  marker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
+  iconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: homeTheme.softFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  markerToday: {
-    borderWidth: 2,
-    borderColor: libraryTheme.primaryBrown,
+  summaryCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
-  markerAchieved: {
-    backgroundColor: libraryTheme.success,
-    borderColor: libraryTheme.success,
-  },
-  markerMissed: {
-    backgroundColor: libraryTheme.surface,
-    borderColor: libraryTheme.border,
-  },
-  markerPending: {
-    backgroundColor: libraryTheme.softBrown,
-    borderColor: libraryTheme.primaryBrown,
-  },
-  markerUpcoming: {
-    backgroundColor: libraryTheme.background,
-    borderColor: libraryTheme.border,
-    borderStyle: 'dashed',
-  },
-  markerQuiet: {
-    backgroundColor: libraryTheme.background,
-    borderColor: libraryTheme.border,
-  },
-  markerGlyph: {
+  summaryLabel: {
     fontSize: 12,
+    lineHeight: 16,
+    color: homeTheme.textSecondary,
+  },
+  summaryValue: {
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
+    color: homeTheme.text,
+    fontVariant: ['tabular-nums'],
   },
-  glyphOnDark: {
-    color: libraryTheme.onPrimary,
+  delta: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: homeTheme.textSecondary,
   },
-  glyphAccent: {
-    color: libraryTheme.primaryBrown,
+  chart: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: BAR_MAX + 18,
+    minWidth: 0,
+    gap: 3,
   },
-  glyphMuted: {
-    color: libraryTheme.textSecondary,
+  chartStacked: {
+    width: '100%',
+    marginTop: 8,
   },
-  state: {
+  barCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  bar: {
+    width: '65%',
+    maxWidth: 12,
+    borderRadius: 999,
+  },
+  weekday: {
     fontSize: 10,
     lineHeight: 13,
-    color: libraryTheme.textSecondary,
-    textAlign: 'center',
+    color: homeTheme.textSecondary,
+    fontWeight: '600',
   },
-  stateToday: {
-    color: libraryTheme.primaryBrown,
-    fontWeight: '700',
+  weekdayToday: {
+    color: homeTheme.primary,
   },
-  note: {
-    ...typography.caption,
-    color: libraryTheme.textSecondary,
+  empty: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: homeTheme.textSecondary,
   },
 });

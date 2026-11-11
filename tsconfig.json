@@ -17,6 +17,7 @@
   "exclude": [
     "lib/notifications/schedulePlan.test.ts",
     "utils/readingStats.test.ts",
-    "utils/shelf.test.ts"
+    "utils/shelf.test.ts",
+    "utils/homeWeekStats.test.ts"
   ]
 }
