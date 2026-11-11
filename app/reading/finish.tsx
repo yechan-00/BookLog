@@ -17,6 +17,9 @@ import type { ActiveReadingSession } from '@/types/reading';
 import { readParam } from '@/utils/book';
 import { formatDuration } from '@/utils/format';
 
+// Longer sessions are likely a timer left running, so the reader confirms the time before saving.
+const LONG_SESSION_SECONDS = 3 * 60 * 60;
+
 interface SavedSummary {
   endPage: number;
   durationSeconds: number;
@@ -87,7 +90,17 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
   const [summary, setSummary] = useState<SavedSummary | null>(null);
 
   const startedAt = new Date(session.startedAt);
-  const durationSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
+  const measuredSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
+  const isLongSession = measuredSeconds > LONG_SESSION_SECONDS;
+  const maxMinutes = Math.floor(measuredSeconds / 60);
+  const [minutesText, setMinutesText] = useState(() => String(maxMinutes));
+  const minutes = Number(minutesText);
+  const minutesValid =
+    !isLongSession ||
+    (minutesText.trim() !== '' && Number.isInteger(minutes) && minutes >= 1 && minutes <= maxMinutes);
+  const durationSeconds = isLongSession && minutesValid ? minutes * 60 : measuredSeconds;
+  // The DB derives the duration from the two timestamps, so a corrected time moves the end time.
+  const savedEndedAt = isLongSession ? new Date(startedAt.getTime() + durationSeconds * 1000) : endedAt;
   const endPage = Number(endPageText);
   const endPageValid =
     endPageText.trim() !== '' &&
@@ -103,7 +116,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
       await finishSession({
         userBookId: book.userBookId,
         startedAt,
-        endedAt,
+        endedAt: savedEndedAt,
         startPage: session.startPage,
         endPage,
         focusExitCount: session.focusExitCount,
@@ -175,6 +188,27 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         </Text>
       </View>
 
+      {isLongSession ? (
+        <>
+          <View style={styles.notice}>
+            <Text style={styles.longNoticeText}>
+              독서 시간이 {LONG_SESSION_SECONDS / 3600}시간을 넘었어요. 타이머를 켜 둔 채 자리를 비웠다면 실제로 읽은
+              시간을 입력해 주세요.
+            </Text>
+          </View>
+          <TextField
+            label="독서 시간 (분)"
+            value={minutesText}
+            onChangeText={setMinutesText}
+            keyboardType="number-pad"
+            editable={!isSaving}
+          />
+          {!minutesValid ? (
+            <Text style={styles.error}>1부터 {maxMinutes} 사이의 분을 입력해 주세요.</Text>
+          ) : null}
+        </>
+      ) : null}
+
       <TextField
         label="끝 페이지"
         value={endPageText}
@@ -202,7 +236,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
       <PrimaryButton
         label={isSaving ? '저장 중…' : '저장'}
         onPress={handleSave}
-        disabled={!endPageValid || isSaving}
+        disabled={!endPageValid || !minutesValid || isSaving}
       />
       <PrimaryButton label="기록 없이 종료" variant="secondary" onPress={handleDiscard} disabled={isSaving} />
     </FinishShell>
@@ -243,5 +277,9 @@ const styles = StyleSheet.create({
   noticeText: {
     ...typography.body,
     color: colors.positive,
+  },
+  longNoticeText: {
+    ...typography.body,
+    color: colors.text,
   },
 });
