@@ -1,12 +1,10 @@
 import { toError } from '@/lib/api/errors';
+import { fetchIndexes } from '@/lib/api/indexes';
+import { isBookStatus, LIBRARY_SELECT, toLibraryBook } from '@/lib/api/mappers';
+import { fetchReview } from '@/lib/api/reviews';
+import { fetchSessions } from '@/lib/api/sessions';
 import { supabase } from '@/lib/supabase';
-import type { BookStatus, RegisteredBook } from '@/types/book';
-
-const BOOK_STATUSES: readonly BookStatus[] = ['wishlist', 'reading', 'completed', 'paused'];
-
-function isBookStatus(value: string): value is BookStatus {
-  return (BOOK_STATUSES as readonly string[]).includes(value);
-}
+import type { BookDetail, LibraryBook, RegisteredBook } from '@/types/book';
 
 interface RegisterBookInput {
   isbn: string;
@@ -45,5 +43,56 @@ export async function registerBook(input: RegisterBookInput): Promise<Registered
     bookId: data.book_id,
     status: data.status,
     totalPages: data.total_pages,
+  };
+}
+
+export async function fetchLibraryBooks(): Promise<LibraryBook[]> {
+  const { data, error } = await supabase
+    .from('user_books')
+    .select(LIBRARY_SELECT)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw toError(error);
+  }
+
+  return data.map(toLibraryBook);
+}
+
+export async function fetchLibraryBook(userBookId: string): Promise<LibraryBook> {
+  const { data, error } = await supabase
+    .from('user_books')
+    .select(LIBRARY_SELECT)
+    .eq('id', userBookId)
+    .maybeSingle();
+
+  if (error) {
+    throw toError(error);
+  }
+
+  if (!data) {
+    throw new Error('서재에서 책을 찾지 못했습니다.');
+  }
+
+  return toLibraryBook(data);
+}
+
+export async function fetchBookDetail(userBookId: string): Promise<BookDetail> {
+  const [book, sessions, indexes] = await Promise.all([
+    fetchLibraryBook(userBookId),
+    fetchSessions(userBookId),
+    fetchIndexes(userBookId),
+  ]);
+  const review =
+    book.status === 'completed' && book.completedAt
+      ? await fetchReview(userBookId, book.completedAt)
+      : null;
+
+  return {
+    book,
+    sessions,
+    indexes,
+    review,
+    totalDurationSeconds: sessions.reduce((sum, session) => sum + session.duration, 0),
   };
 }

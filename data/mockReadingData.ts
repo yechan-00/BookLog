@@ -103,8 +103,8 @@ export const mockIndexes: BookIndex[] = [
     bookId: BOOK_IDS.almond,
     sessionId: 'session-almond-3',
     page: 54,
+    title: '속도보다 방향',
     quote: '중요한 것은 속도가 아니라 방향이다.',
-    memo: '나중에 다시 보고 싶은 부분',
     createdAt: atTime(dateKeyOffset(-1), 21, 28),
   },
   {
@@ -112,8 +112,8 @@ export const mockIndexes: BookIndex[] = [
     bookId: BOOK_IDS.almond,
     sessionId: 'session-almond-1',
     page: 11,
-    quote: '오늘은 여기까지 읽어도 충분하다.',
-    memo: null,
+    title: '오늘은 여기까지',
+    quote: null,
     createdAt: atTime(dateKeyOffset(-3), 21, 20),
   },
   {
@@ -121,8 +121,8 @@ export const mockIndexes: BookIndex[] = [
     bookId: BOOK_IDS.demian,
     sessionId: 'session-demian-3',
     page: 52,
+    title: '책의 중심 문장',
     quote: '혼자 서는 일이 이렇게 조용한 줄 몰랐다.',
-    memo: '책의 중심 문장',
     createdAt: atTime(dateKeyOffset(-7), 21, 0),
   },
 ];

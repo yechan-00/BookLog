@@ -1,3 +1,5 @@
+import type { BookIndex, BookReview, ReadingSession } from '@/types/reading';
+
 export type BookStatus = 'wishlist' | 'reading' | 'completed' | 'paused';
 
 export interface Book {
@@ -61,4 +63,13 @@ export interface RegisteredBook {
   bookId: string;
   status: BookStatus;
   totalPages: number;
+}
+
+/** Everything the book detail screen shows for one shelf entry. */
+export interface BookDetail {
+  book: LibraryBook;
+  sessions: ReadingSession[];
+  indexes: BookIndex[];
+  review: BookReview | null;
+  totalDurationSeconds: number;
 }
