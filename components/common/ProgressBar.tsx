@@ -8,6 +8,7 @@ type ProgressBarProps = {
   total: number;
   trackColor?: string;
   fillColor?: string;
+  height?: number;
 };
 
 export function ProgressBar({
@@ -15,12 +16,13 @@ export function ProgressBar({
   total,
   trackColor = colors.progressTrack,
   fillColor = colors.progressFill,
+  height = 8,
 }: ProgressBarProps) {
   const percent = clampPercent(current, total);
 
   return (
     <View
-      style={[styles.track, { backgroundColor: trackColor }]}
+      style={[styles.track, { backgroundColor: trackColor, height }]}
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: percent }}
     >
@@ -31,7 +33,6 @@ export function ProgressBar({
 
 const styles = StyleSheet.create({
   track: {
-    height: 8,
     borderRadius: 999,
     overflow: 'hidden',
   },

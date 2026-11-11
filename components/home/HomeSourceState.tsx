@@ -1,8 +1,8 @@
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '@/components/common/PrimaryButton';
-import { libraryTheme } from '@/constants/libraryTheme';
-import { radius, spacing, typography } from '@/constants/theme';
+import { HomeCard } from '@/components/home/HomeCard';
+import { homeTheme } from '@/constants/homeTheme';
 
 type HomeSourceStateProps =
   | {
@@ -30,80 +30,74 @@ type HomeSourceStateProps =
 export function HomeSourceState(props: HomeSourceStateProps) {
   if (props.kind === 'loading') {
     return (
-      <View style={[styles.card, styles.loadingCard]}>
-        <ActivityIndicator color={libraryTheme.primaryBrown} accessibilityLabel={props.title ?? '불러오는 중'} />
-        <Text style={styles.title}>{props.title ?? '독서 정보를 불러오는 중이에요'}</Text>
-        <Text style={styles.description}>잠시만 기다려 주세요.</Text>
-      </View>
+      <HomeCard>
+        <View style={styles.loadingRow}>
+          <ActivityIndicator color={homeTheme.primary} accessibilityLabel={props.title ?? '불러오는 중'} />
+          <View style={styles.loadingCopy}>
+            <Text style={styles.title}>{props.title ?? '독서 정보를 불러오는 중이에요'}</Text>
+          </View>
+        </View>
+      </HomeCard>
     );
   }
 
   if (props.kind === 'empty') {
     return (
-      <View style={styles.card}>
-        <View style={styles.accentLine} />
+      <HomeCard>
         <Text style={styles.title}>{props.title}</Text>
         {props.description ? <Text style={styles.description}>{props.description}</Text> : null}
         {props.onAction && props.actionLabel ? (
-          <PrimaryButton
-            label={props.actionLabel}
-            onPress={props.onAction}
-            primaryColor={libraryTheme.primaryBrown}
-            primaryPressedColor={libraryTheme.darkBrown}
-            onPrimaryColor={libraryTheme.onPrimary}
-          />
+          <View style={styles.action}>
+            <PrimaryButton
+              label={props.actionLabel}
+              onPress={props.onAction}
+              primaryColor={homeTheme.primary}
+              primaryPressedColor={homeTheme.accentLine}
+              onPrimaryColor={homeTheme.onPrimary}
+            />
+          </View>
         ) : null}
-      </View>
+      </HomeCard>
     );
   }
 
   const isError = props.kind === 'error';
 
   return (
-    <View style={[styles.card, isError && styles.errorCard]}>
-      <View style={styles.accentLine} />
+    <HomeCard style={isError ? styles.errorCard : undefined}>
       <Text style={styles.title}>
         {props.title ?? (isError ? '독서 정보를 불러오지 못했어요.' : '독서 정보를 불러올 수 없습니다')}
       </Text>
       {props.description ? <Text style={styles.description}>{props.description}</Text> : null}
-      {isError ? <Text style={styles.errorHint}>오류 상태입니다. 예시 수치는 표시하지 않습니다.</Text> : null}
-    </View>
+    </HomeCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: libraryTheme.surface,
-    borderColor: libraryTheme.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  loadingCard: {
-    alignItems: 'flex-start',
+  loadingCopy: {
+    flex: 1,
   },
   errorCard: {
-    borderColor: libraryTheme.secondaryBrown,
-  },
-  accentLine: {
-    width: 28,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: libraryTheme.primaryBrown,
-    marginBottom: 2,
+    borderColor: homeTheme.date,
   },
   title: {
-    ...typography.bodyStrong,
-    color: libraryTheme.darkBrown,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+    color: homeTheme.text,
   },
   description: {
-    ...typography.caption,
-    color: libraryTheme.textSecondary,
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    color: homeTheme.textSecondary,
   },
-  errorHint: {
-    ...typography.caption,
-    color: libraryTheme.secondaryBrown,
-    fontWeight: '600',
+  action: {
+    marginTop: 12,
   },
 });

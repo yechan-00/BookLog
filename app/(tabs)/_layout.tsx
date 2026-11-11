@@ -1,12 +1,20 @@
 import { Tabs } from 'expo-router';
-import type { ColorValue } from 'react-native';
+import { StyleSheet, View, type ColorValue } from 'react-native';
 
 import { AppIcon, type AppIconName } from '@/components/common/AppIcon';
-import { colors } from '@/constants/colors';
+import { homeTheme } from '@/constants/homeTheme';
+
+const ACTIVE = '#79543F';
+const INACTIVE = '#96877D';
 
 function tabIcon(name: AppIconName) {
-  function TabBarIcon({ color }: { color: ColorValue }) {
-    return <AppIcon name={name} color={color} size={22} />;
+  function TabBarIcon({ color, focused }: { color: ColorValue; focused: boolean }) {
+    return (
+      <View style={styles.iconWrap}>
+        <AppIcon name={name} color={color} size={22} />
+        <View style={[styles.dot, focused ? styles.dotOn : styles.dotOff]} />
+      </View>
+    );
   }
 
   return TabBarIcon;
@@ -17,14 +25,23 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: ACTIVE,
+        tabBarInactiveTintColor: INACTIVE,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: homeTheme.surface,
+          borderTopColor: homeTheme.border,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
+          paddingTop: 6,
+          elevation: 6,
+          shadowColor: homeTheme.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 1,
+          shadowRadius: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '600',
         },
       }}
@@ -60,3 +77,22 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+  },
+  dotOn: {
+    backgroundColor: ACTIVE,
+  },
+  dotOff: {
+    backgroundColor: 'transparent',
+  },
+});

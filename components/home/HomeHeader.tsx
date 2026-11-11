@@ -2,37 +2,48 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '@/components/common/AppIcon';
-import { libraryTheme } from '@/constants/libraryTheme';
-import { spacing, typography } from '@/constants/theme';
+import { homeSpace, homeTheme } from '@/constants/homeTheme';
+import { useAuth } from '@/lib/auth/AuthProvider';
 import { formatKoreanDate } from '@/utils/format';
 
 type HomeHeaderProps = {
   today: Date;
-  onOpenPreview?: () => void;
+  /** Preview-only override so sample names stay out of production data. */
+  previewNickname?: string | null;
 };
 
-export function HomeHeader({ today, onOpenPreview }: HomeHeaderProps) {
+export function HomeHeader({ today, previewNickname }: HomeHeaderProps) {
+  const { profile } = useAuth();
+  const nickname = previewNickname !== undefined ? previewNickname : profile?.nickname?.trim() || null;
+  const longName = Boolean(nickname && nickname.length > 8);
+
   return (
     <View style={styles.header}>
-      <View style={styles.copy}>
+      <View style={styles.left}>
         <Text style={styles.date}>{formatKoreanDate(today)}</Text>
-        <Text style={styles.title}>오늘도 한 페이지씩</Text>
+        {nickname ? (
+          <Text style={[styles.greeting, longName && styles.greetingLong]}>
+            {nickname} 님,{'\n'}오늘도 한 페이지씩
+          </Text>
+        ) : (
+          <Text style={styles.greeting}>
+            오늘도{'\n'}한 페이지씩
+          </Text>
+        )}
         <View style={styles.accentLine} />
-        <Text style={styles.subtitle}>작은 독서가 쌓여 나만의 이야기가 돼요.</Text>
-        {__DEV__ && onOpenPreview ? (
-          <Pressable accessibilityRole="button" onPress={onOpenPreview} style={styles.previewEntry}>
-            <Text style={styles.previewLabel}>개발용 홈 미리보기</Text>
-          </Pressable>
-        ) : null}
+        <Text style={styles.subtitle} numberOfLines={1}>
+          좋은 이야기가, 좋은 하루를 만듭니다.
+        </Text>
       </View>
+
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="설정"
         hitSlop={8}
         onPress={() => router.push('/settings')}
-        style={({ pressed }) => [styles.settingsButton, pressed && styles.settingsPressed]}
+        style={({ pressed }) => [styles.profileButton, pressed && styles.pressed]}
       >
-        <AppIcon name="settings" color={libraryTheme.darkBrown} />
+        <AppIcon name="person" size={20} color={homeTheme.primary} />
       </Pressable>
     </View>
   );
@@ -43,53 +54,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: homeSpace.md,
   },
-  copy: {
+  left: {
     flex: 1,
-    gap: 6,
+    minWidth: 0,
+    paddingRight: homeSpace.sm,
   },
   date: {
-    ...typography.caption,
-    color: libraryTheme.secondaryBrown,
-    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: homeTheme.date,
+    marginBottom: 8,
   },
-  title: {
-    ...typography.greeting,
-    color: libraryTheme.darkBrown,
+  greeting: {
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: '700',
+    color: homeTheme.text,
+  },
+  greetingLong: {
+    fontSize: 22,
+    lineHeight: 27,
   },
   accentLine: {
     width: 36,
     height: 3,
     borderRadius: 2,
-    backgroundColor: libraryTheme.primaryBrown,
-    marginTop: 2,
-    marginBottom: 2,
+    backgroundColor: homeTheme.accentLine,
+    marginTop: 12,
+    marginBottom: 10,
   },
   subtitle: {
-    ...typography.body,
-    color: libraryTheme.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    color: homeTheme.textSecondary,
   },
-  previewEntry: {
-    minHeight: 36,
-    justifyContent: 'center',
-  },
-  previewLabel: {
-    ...typography.caption,
-    color: libraryTheme.primaryBrown,
-    fontWeight: '700',
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  profileButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: libraryTheme.surface,
+    backgroundColor: homeTheme.surface,
     borderWidth: 1,
-    borderColor: libraryTheme.border,
+    borderColor: '#E9DFD5',
+    shadowColor: homeTheme.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    elevation: 1,
   },
-  settingsPressed: {
-    opacity: 0.85,
+  pressed: {
+    opacity: 0.88,
   },
 });
