@@ -10,6 +10,10 @@ type PrimaryButtonProps = {
   loading?: boolean;
   variant?: 'primary' | 'secondary';
   style?: StyleProp<ViewStyle>;
+  /** Optional primary fill. Defaults keep the global accent. */
+  primaryColor?: string;
+  primaryPressedColor?: string;
+  onPrimaryColor?: string;
 };
 
 export function PrimaryButton({
@@ -19,6 +23,9 @@ export function PrimaryButton({
   loading = false,
   variant = 'primary',
   style,
+  primaryColor = colors.accent,
+  primaryPressedColor = colors.accentPressed,
+  onPrimaryColor = colors.onAccent,
 }: PrimaryButtonProps) {
   const isPrimary = variant === 'primary';
   const isDisabled = disabled || loading;
@@ -31,16 +38,16 @@ export function PrimaryButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
-        isPrimary ? styles.primary : styles.secondary,
-        pressed && !isDisabled && (isPrimary ? styles.primaryPressed : styles.secondaryPressed),
+        isPrimary ? { backgroundColor: primaryColor } : styles.secondary,
+        pressed && !isDisabled && (isPrimary ? { backgroundColor: primaryPressedColor } : styles.secondaryPressed),
         disabled && !loading && styles.disabled,
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={isPrimary ? colors.onAccent : colors.accent} />
+        <ActivityIndicator color={isPrimary ? onPrimaryColor : colors.accent} />
       ) : null}
-      <Text style={[styles.label, isPrimary ? styles.primaryLabel : styles.secondaryLabel]}>{label}</Text>
+      <Text style={[styles.label, isPrimary ? { color: onPrimaryColor } : styles.secondaryLabel]}>{label}</Text>
     </Pressable>
   );
 }

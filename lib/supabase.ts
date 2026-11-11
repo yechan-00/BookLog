@@ -26,8 +26,28 @@ function missingSupabaseEnvMessage(): string {
   ].join(' ');
 }
 
+function invalidSupabaseUrlMessage(): string {
+  return [
+    'EXPO_PUBLIC_SUPABASE_URL이 프로젝트 API 주소가 아닙니다.',
+    '대시보드 화면 주소 대신 Settings의 Project URL(https://<project-ref>.supabase.co)을 .env.local에 넣고 개발 서버를 다시 시작하세요.',
+  ].join(' ');
+}
+
+function isSupabaseProjectUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname.endsWith('.supabase.co');
+  } catch {
+    return false;
+  }
+}
+
 if (!supabaseUrl || !supabasePublishableKey) {
   throw new Error(missingSupabaseEnvMessage());
+}
+
+if (!isSupabaseProjectUrl(supabaseUrl)) {
+  throw new Error(invalidSupabaseUrlMessage());
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabasePublishableKey, {

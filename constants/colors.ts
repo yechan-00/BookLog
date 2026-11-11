@@ -14,10 +14,25 @@ export const colors = {
   positive: '#6D7B58',
   warning: '#8C5346',
   error: '#8C3A32',
-  shelf: '#C6A57A',
-  shelfEdge: '#A8875C',
+  darkBrown: '#4A3025',
+  wood: '#946B4F',
+  woodLight: '#C69B74',
+  shelf: '#946B4F',
+  shelfEdge: '#4A3025',
+  shelfHighlight: '#C69B74',
   overlay: 'rgba(60, 42, 30, 0.4)',
   coverText: '#FBF7F1',
 } as const;
 
+/** Quiet spine colors for the cozy shelf. Keep saturation low. */
+export const spinePalette = [
+  '#6D7B58',
+  '#6E7F8A',
+  '#C4785A',
+  '#C4A06A',
+  '#7A5C6B',
+  '#6B4F3F',
+] as const;
+
 export type AppColor = (typeof colors)[keyof typeof colors];
+export type SpinePaletteColor = (typeof spinePalette)[number];

@@ -6,14 +6,25 @@ import { clampPercent } from '@/utils/format';
 type ProgressBarProps = {
   current: number;
   total: number;
+  trackColor?: string;
+  fillColor?: string;
 };
 
-export function ProgressBar({ current, total }: ProgressBarProps) {
+export function ProgressBar({
+  current,
+  total,
+  trackColor = colors.progressTrack,
+  fillColor = colors.progressFill,
+}: ProgressBarProps) {
   const percent = clampPercent(current, total);
 
   return (
-    <View style={styles.track} accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: percent }}>
-      <View style={[styles.fill, { width: `${percent}%` }]} />
+    <View
+      style={[styles.track, { backgroundColor: trackColor }]}
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: percent }}
+    >
+      <View style={[styles.fill, { width: `${percent}%`, backgroundColor: fillColor }]} />
     </View>
   );
 }
@@ -22,12 +33,11 @@ const styles = StyleSheet.create({
   track: {
     height: 8,
     borderRadius: 999,
-    backgroundColor: colors.progressTrack,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: colors.progressFill,
   },
 });
+

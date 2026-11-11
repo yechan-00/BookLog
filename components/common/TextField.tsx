@@ -10,7 +10,8 @@ type TextFieldProps = {
   onChangeText: (text: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: 'default' | 'number-pad';
+  keyboardType?: 'default' | 'number-pad' | 'email-address';
+  secureTextEntry?: boolean;
   editable?: boolean;
   error?: string;
   emphasizeFocus?: boolean;
@@ -23,6 +24,7 @@ export function TextField({
   placeholder,
   multiline = false,
   keyboardType = 'default',
+  secureTextEntry = false,
   editable = true,
   error,
   emphasizeFocus = false,
@@ -40,6 +42,8 @@ export function TextField({
         placeholderTextColor={colors.textMuted}
         multiline={multiline}
         keyboardType={keyboardType}
+        secureTextEntry={secureTextEntry}
+        autoCapitalize={keyboardType === 'email-address' ? 'none' : undefined}
         editable={editable}
         textAlignVertical={multiline ? 'top' : 'center'}
         onFocus={emphasizeFocus ? () => setIsFocused(true) : undefined}
