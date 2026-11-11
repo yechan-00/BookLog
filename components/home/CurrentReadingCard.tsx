@@ -5,6 +5,7 @@ import { ShelfBookCover } from '@/components/books/ShelfBookCover';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { libraryTheme } from '@/constants/libraryTheme';
 import { radius, spacing, typography } from '@/constants/theme';
+import { startReading } from '@/lib/reading/startReading';
 import type { LibraryBook } from '@/types/book';
 
 type CurrentReadingCardProps = {
@@ -43,7 +44,7 @@ export function CurrentReadingCard({ book }: CurrentReadingCardProps) {
       </Pressable>
       <PrimaryButton
         label="이어 읽기"
-        onPress={() => router.push({ pathname: '/reading/session', params: { userBookId: book.userBookId } })}
+        onPress={() => startReading(book.userBookId, book.currentPage)}
         primaryColor={libraryTheme.primaryBrown}
         primaryPressedColor={libraryTheme.darkBrown}
         onPrimaryColor={libraryTheme.onPrimary}

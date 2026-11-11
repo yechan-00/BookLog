@@ -1,6 +1,6 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/books/BookCover';
 import { StatusBadge } from '@/components/books/StatusBadge';
@@ -14,7 +14,7 @@ import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
 import { fetchBookDetail } from '@/lib/api/books';
-import { beginReadingSession } from '@/lib/reading/activeSession';
+import { startReading } from '@/lib/reading/startReading';
 import type { BookDetail } from '@/types/book';
 import { readParam } from '@/utils/book';
 import { clampPercent, formatDuration, formatKoreanDateKey } from '@/utils/format';
@@ -48,24 +48,6 @@ export default function BookDetailScreen() {
   }
 
   return <BookDetailContent detail={state.data} />;
-}
-
-function startReading(userBookId: string, currentPage: number) {
-  const result = beginReadingSession(userBookId, currentPage);
-
-  if (result.kind === 'busy') {
-    Alert.alert('이미 진행 중인 독서가 있어요', '진행 중인 독서를 먼저 마쳐 주세요.', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '진행 중인 독서로 이동',
-        onPress: () =>
-          router.push({ pathname: '/reading/session', params: { userBookId: result.userBookId } }),
-      },
-    ]);
-    return;
-  }
-
-  router.push({ pathname: '/reading/session', params: { userBookId } });
 }
 
 function BookDetailContent({ detail }: { detail: BookDetail }) {
