@@ -1,9 +1,9 @@
 import { fetchLibraryBooks } from '@/lib/api/books';
 import { toError } from '@/lib/api/errors';
-import { fetchSessions } from '@/lib/api/sessions';
+import { fetchReadingActivities } from '@/lib/api/sessions';
 import { supabase } from '@/lib/supabase';
 import type { LibraryBook } from '@/types/book';
-import type { GoalPeriod, ReadingActivity, ReadingHistory } from '@/utils/readingPeriod';
+import type { GoalPeriod, ReadingHistory } from '@/utils/readingPeriod';
 
 export type LoadStatus<T> =
   | { status: 'unavailable' }
@@ -58,27 +58,10 @@ function pickCurrentBook(books: LibraryBook[]): LibraryBook | null {
   })[0] ?? null;
 }
 
-/** Loads goals plus per-book sessions for home/records/insights. */
+/** Loads goals plus all sessions for home/records/insights in two requests. */
 export async function loadReadingHistory(): Promise<ReadingHistory> {
-  const [goals, books] = await Promise.all([fetchGoalPeriods(), fetchLibraryBooks()]);
-  const sessionGroups = await Promise.all(
-    books.map(async (book) => {
-      const sessions = await fetchSessions(book.userBookId);
-      return sessions.map(
-        (session): ReadingActivity => ({
-          readOn: session.date,
-          durationSeconds: session.duration,
-          pagesRead: session.pagesRead,
-          bookTitle: book.title,
-        }),
-      );
-    }),
-  );
-
-  return {
-    goals,
-    activities: sessionGroups.flat(),
-  };
+  const [goals, activities] = await Promise.all([fetchGoalPeriods(), fetchReadingActivities()]);
+  return { goals, activities };
 }
 
 /** Ready null means the shelf loaded and no book is currently reading. */

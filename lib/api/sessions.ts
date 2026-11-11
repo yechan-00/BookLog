@@ -3,6 +3,7 @@ import { toReadingSession } from '@/lib/api/mappers';
 import { supabase } from '@/lib/supabase';
 import type { ReadingSession } from '@/types/reading';
 import { toDateKey } from '@/utils/date';
+import type { ReadingActivity } from '@/utils/readingPeriod';
 
 interface FinishSessionInput {
   userBookId: string;
@@ -45,6 +46,29 @@ export async function finishSession(input: FinishSessionInput): Promise<string> 
   }
 
   return data;
+}
+
+/**
+ * All of the user's sessions with book titles in one request (RLS limits rows to the user).
+ * Newest first, so the server row limit (max_rows) drops the oldest sessions, not recent ones.
+ */
+export async function fetchReadingActivities(): Promise<ReadingActivity[]> {
+  const { data, error } = await supabase
+    .from('reading_sessions')
+    .select('read_on, duration_seconds, start_page, end_page, pages_read, user_books(books(title))')
+    .order('started_at', { ascending: false });
+
+  if (error) {
+    throw toError(error);
+  }
+
+  return data.map((row) => ({
+    readOn: row.read_on,
+    durationSeconds: row.duration_seconds,
+    // Generated column, so the generated types mark it nullable.
+    pagesRead: row.pages_read ?? Math.max(row.end_page - row.start_page, 0),
+    bookTitle: row.user_books?.books?.title ?? null,
+  }));
 }
 
 export async function fetchSessions(userBookId: string): Promise<ReadingSession[]> {
