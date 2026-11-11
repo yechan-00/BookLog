@@ -24,6 +24,11 @@ export function formatDuration(totalSeconds: number): string {
     return `${hours}시간`;
   }
 
+  // Short sessions would otherwise show as "0분".
+  if (minutes === 0) {
+    return `${safe}초`;
+  }
+
   return `${minutes}분`;
 }
 
