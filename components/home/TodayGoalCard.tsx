@@ -1,10 +1,10 @@
 import { router } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
-import { PrimaryButton } from '@/components/common/PrimaryButton';
-import { ProgressBar } from '@/components/common/ProgressBar';
-import { libraryTheme } from '@/constants/libraryTheme';
-import { radius, spacing, typography } from '@/constants/theme';
+import { AppIcon } from '@/components/common/AppIcon';
+import { CircularProgress } from '@/components/home/CircularProgress';
+import { HomeCard, HomeCardTitle, homeTwinCardStyle } from '@/components/home/HomeCard';
+import { homeTheme } from '@/constants/homeTheme';
 import { formatDuration } from '@/utils/format';
 import type { TodayGoalProgress } from '@/utils/readingSummary';
 
@@ -12,105 +12,175 @@ type TodayGoalCardProps = {
   goal: TodayGoalProgress;
 };
 
+function formatMinuteLabel(seconds: number): string {
+  return `${Math.max(0, Math.round(seconds / 60))}분`;
+}
+
 export function TodayGoalCard({ goal }: TodayGoalCardProps) {
+  const { width } = useWindowDimensions();
+  const ringSize = width < 390 ? 82 : 92;
+
   if (goal.state === 'no_goal') {
     return (
-      <View style={styles.card}>
-        <Text style={styles.stateTitle}>나만의 독서 목표를 설정해 보세요.</Text>
-        <Text style={styles.note}>오늘부터 작은 목표로 독서를 이어 갈 수 있어요.</Text>
-        <PrimaryButton
-          label="목표 설정하기"
-          onPress={() => router.push('/settings')}
-          primaryColor={libraryTheme.primaryBrown}
-          primaryPressedColor={libraryTheme.darkBrown}
-          onPrimaryColor={libraryTheme.onPrimary}
-        />
-      </View>
+      <HomeCard style={homeTwinCardStyle}>
+        <HomeCardTitle title="오늘의 목표" onPress={() => router.push('/settings')} />
+        <View style={styles.body}>
+          <CircularProgress percent={0} size={ringSize} strokeWidth={9} color={homeTheme.progressTrack}>
+            <Text style={styles.emptyRingLabel}>목표</Text>
+            <Text style={styles.emptyRingSub}>없음</Text>
+          </CircularProgress>
+          <View style={styles.copyCol}>
+            <Text style={styles.stateTitle} numberOfLines={2}>
+              목표를 설정해 보세요.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => router.push('/settings')}
+              style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.linkLabel}>목표 설정</Text>
+            </Pressable>
+          </View>
+        </View>
+      </HomeCard>
     );
   }
 
   if (goal.state === 'rest') {
     return (
-      <View style={styles.card}>
-        <Text style={styles.stateTitle}>오늘은 쉬는 날입니다</Text>
-        <Text style={styles.note}>목표 요일이 아닙니다. 읽고 싶은 책은 언제든 이어 읽을 수 있어요.</Text>
-      </View>
+      <HomeCard style={homeTwinCardStyle}>
+        <HomeCardTitle title="오늘의 목표" />
+        <Text style={styles.stateTitle} numberOfLines={2}>
+          오늘은 쉬는 날이에요.
+        </Text>
+        <Text style={styles.caption} numberOfLines={2}>
+          읽고 싶을 때 이어 읽을 수 있어요.
+        </Text>
+      </HomeCard>
     );
   }
 
   if (goal.state === 'unknown' || goal.percent === null) {
     return (
-      <View style={styles.card}>
-        <Text style={styles.stateTitle}>목표 진행을 계산할 수 없습니다</Text>
-        <Text style={styles.note}>목표량이나 페이지 기록이 없어 0으로 채우지 않았습니다.</Text>
-      </View>
+      <HomeCard style={homeTwinCardStyle}>
+        <HomeCardTitle title="오늘의 목표" />
+        <Text style={styles.stateTitle} numberOfLines={2}>
+          진행률을 계산할 수 없어요.
+        </Text>
+        <Text style={styles.caption} numberOfLines={2}>
+          목표량이나 기록이 부족합니다.
+        </Text>
+      </HomeCard>
     );
   }
 
   const achieved = goal.state === 'achieved';
   const isTime = goal.goalType === 'time';
-  const progressLabel = isTime
-    ? `${formatDuration(goal.readSeconds)} / ${formatDuration(goal.targetSeconds ?? 0)}`
-    : `${goal.readPages ?? 0} / ${goal.targetPages ?? 0}페이지`;
-  const remainingLabel = isTime
-    ? `목표까지 ${formatDuration(goal.remainingSeconds ?? 0)}`
-    : `목표까지 ${goal.remainingPages ?? 0}페이지`;
+  const readLabel = isTime ? formatMinuteLabel(goal.readSeconds) : `${goal.readPages ?? 0}쪽`;
+  const targetLabel = isTime
+    ? `/ ${formatMinuteLabel(goal.targetSeconds ?? 0)}`
+    : `/ ${goal.targetPages ?? 0}쪽`;
+  const encouragement = achieved ? '오늘 목표를\n채웠어요.' : '오늘도 꾸준히\n읽고 있어요.';
+  const footer = isTime
+    ? `하루 ${formatDuration(goal.targetSeconds ?? 0)}`
+    : `하루 ${goal.targetPages ?? 0}쪽`;
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.eyebrow}>{isTime ? '시간 목표' : '페이지 목표'}</Text>
-      <Text style={styles.progressValue}>{progressLabel}</Text>
-      <Text style={styles.percent}>{goal.percent}%</Text>
-      <ProgressBar
-        current={goal.percent}
-        total={100}
-        trackColor={libraryTheme.border}
-        fillColor={libraryTheme.primaryBrown}
-      />
-      <Text style={[styles.note, achieved && styles.achieved]}>
-        {achieved ? '오늘 목표를 채웠습니다. 독서는 계속할 수 있어요.' : remainingLabel}
-      </Text>
-    </View>
+    <HomeCard style={homeTwinCardStyle}>
+      <HomeCardTitle title="오늘의 목표" onPress={() => router.push('/settings')} />
+      <View style={styles.body}>
+        <CircularProgress percent={goal.percent} size={ringSize} strokeWidth={10}>
+          <Text style={styles.readValue}>{readLabel}</Text>
+          <Text style={styles.targetValue}>{targetLabel}</Text>
+        </CircularProgress>
+        <View style={styles.copyCol}>
+          <Text style={styles.encouragement}>{encouragement}</Text>
+          <View style={styles.footer}>
+            <AppIcon name="bookOpen" size={13} color={homeTheme.textSecondary} />
+            <Text style={styles.footerText} numberOfLines={1}>
+              {footer}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </HomeCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: libraryTheme.surface,
-    borderColor: libraryTheme.border,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
-    shadowColor: libraryTheme.darkBrown,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 1,
+  body: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  eyebrow: {
-    ...typography.caption,
-    color: libraryTheme.secondaryBrown,
+  copyCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
+  },
+  readValue: {
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '700',
+    color: homeTheme.text,
+    fontVariant: ['tabular-nums'],
+  },
+  targetValue: {
+    fontSize: 12,
+    lineHeight: 15,
+    color: homeTheme.textSecondary,
+    fontVariant: ['tabular-nums'],
+  },
+  emptyRingLabel: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: homeTheme.textSecondary,
+  },
+  emptyRingSub: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: homeTheme.textSecondary,
+  },
+  encouragement: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: homeTheme.textSecondary,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  footerText: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 15,
+    color: homeTheme.textSecondary,
   },
   stateTitle: {
-    ...typography.bodyStrong,
-    color: libraryTheme.darkBrown,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    color: homeTheme.text,
   },
-  progressValue: {
-    ...typography.title,
-    color: libraryTheme.darkBrown,
+  caption: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 16,
+    color: homeTheme.textSecondary,
   },
-  percent: {
-    ...typography.bodyStrong,
-    color: libraryTheme.primaryBrown,
+  linkButton: {
+    minHeight: 28,
+    justifyContent: 'center',
   },
-  note: {
-    ...typography.caption,
-    color: libraryTheme.textSecondary,
+  linkLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: homeTheme.primary,
   },
-  achieved: {
-    color: libraryTheme.success,
-    fontWeight: '600',
+  pressed: {
+    opacity: 0.85,
   },
 });
