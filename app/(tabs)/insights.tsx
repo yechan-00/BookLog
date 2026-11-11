@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/common/EmptyState';
@@ -8,18 +8,25 @@ import { ReadingStatCard } from '@/components/reading/ReadingStatCard';
 import { WeekAchievementCard } from '@/components/reading/WeekAchievementCard';
 import { colors } from '@/constants/colors';
 import { card, radius, spacing, typography } from '@/constants/theme';
+import { useFocusData } from '@/hooks/useFocusData';
 import { startOfToday, toDateKey } from '@/utils/date';
 import { formatDuration, formatKoreanDateKey } from '@/utils/format';
 import { insightReadingSummary, type InsightReadingSummary } from '@/utils/readingSummary';
-import { loadReadingHistory, type LoadStatus } from '@/utils/readingSource';
+import { loadReadingHistory } from '@/utils/readingSource';
 
 const ranges = [7, 30] as const;
+
+type HistorySource =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'ready' };
 
 export default function InsightsScreen() {
   const todayKey = toDateKey(startOfToday());
   const [dayCount, setDayCount] = useState<(typeof ranges)[number]>(7);
-  const source = loadReadingHistory();
-  const summary = source.status === 'ready' ? insightReadingSummary(todayKey, dayCount, source.value) : null;
+  const loadHistory = useCallback(() => loadReadingHistory(), []);
+  const source = useFocusData(loadHistory);
+  const summary = source.status === 'ready' ? insightReadingSummary(todayKey, dayCount, source.data) : null;
   const hasReading = summary !== null && summary.period.readingDayCount > 0;
 
   return (
@@ -126,12 +133,12 @@ function Achievement({ summary }: { summary: InsightReadingSummary }) {
   );
 }
 
-function sectionTitle(source: LoadStatus<unknown>, hasReading: boolean, unavailable: string, failed: string): string {
+function sectionTitle(source: HistorySource, hasReading: boolean, unavailable: string, failed: string): string {
   if (source.status === 'error') {
     return failed;
   }
-  if (source.status === 'unavailable') {
-    return unavailable;
+  if (source.status === 'loading') {
+    return '독서 정보를 불러오는 중이에요';
   }
   if (!hasReading) {
     return '이 기간의 독서 기록이 없습니다';
@@ -139,12 +146,12 @@ function sectionTitle(source: LoadStatus<unknown>, hasReading: boolean, unavaila
   return unavailable;
 }
 
-function sectionDescription(source: LoadStatus<unknown>, hasReading: boolean): string {
+function sectionDescription(source: HistorySource, hasReading: boolean): string {
   if (source.status === 'error') {
     return source.message;
   }
-  if (source.status === 'unavailable') {
-    return '세션·목표 이력 조회 API가 없습니다. 예시 수치는 표시하지 않습니다.';
+  if (source.status === 'loading') {
+    return '독서 기록을 불러오는 중이에요.';
   }
   if (!hasReading) {
     return '저장된 세션이 없습니다.';

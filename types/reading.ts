@@ -29,8 +29,8 @@ export interface BookIndex {
   bookId: string;
   sessionId: string | null;
   page: number;
-  quote: string;
-  memo: string | null;
+  title: string;
+  quote: string | null;
   createdAt: string;
 }
 
@@ -41,4 +41,13 @@ export interface BookReview {
   completedAt: string;
   rating: number;
   review: string;
+}
+
+/** The session being read right now. Kept on the device so it survives an app kill. */
+export interface ActiveReadingSession {
+  userBookId: string;
+  /** ISO 8601. Elapsed time is always `now - startedAt`. */
+  startedAt: string;
+  startPage: number;
+  focusExitCount: number;
 }

@@ -34,5 +34,8 @@ export const spinePalette = [
   '#6B4F3F',
 ] as const;
 
+/** Cover/spine colors for books that have no cover color of their own. */
+export const bookCoverPalette = ['#C4785A', '#6E7F8A', '#3E4A3D', '#8A6F4E', '#7A5C6B'] as const;
+
 export type AppColor = (typeof colors)[keyof typeof colors];
 export type SpinePaletteColor = (typeof spinePalette)[number];

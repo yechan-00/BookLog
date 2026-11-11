@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/common/EmptyState';
+import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { MonthCalendar } from '@/components/reading/MonthCalendar';
@@ -9,6 +10,7 @@ import { ReadingStatCard } from '@/components/reading/ReadingStatCard';
 import { WeekAchievementCard } from '@/components/reading/WeekAchievementCard';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
+import { useFocusData } from '@/hooks/useFocusData';
 import { startOfToday, toDateKey } from '@/utils/date';
 import { formatDuration, formatKoreanDateKey } from '@/utils/format';
 import { buildMonthMarks } from '@/utils/readingCalendar';
@@ -27,8 +29,9 @@ export default function RecordsScreen() {
     () => new Date(startOfToday().getFullYear(), startOfToday().getMonth(), 1),
   );
   const [selectedDate, setSelectedDate] = useState(todayKey);
-  const source = loadReadingHistory();
-  const history = source.status === 'ready' ? source.value : null;
+  const loadHistory = useCallback(() => loadReadingHistory(), []);
+  const source = useFocusData(loadHistory);
+  const history = source.status === 'ready' ? source.data : null;
   const marks = useMemo(
     () =>
       buildMonthMarks(
@@ -62,20 +65,26 @@ export default function RecordsScreen() {
           onChangeMonth={setVisibleMonth}
         />
       </View>
-      {source.status === 'unavailable' ? (
-        <Text style={styles.note}>독서 기록과 목표 이력을 아직 불러오지 않습니다.</Text>
+      {source.status === 'loading' ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={colors.accent} />
+          <Text style={styles.note}>독서 기록을 불러오는 중이에요.</Text>
+        </View>
       ) : null}
-      {source.status === 'error' ? <Text style={styles.note}>{source.message}</Text> : null}
+      {source.status === 'error' ? (
+        <View style={styles.retry}>
+          <Text style={styles.note}>{source.message}</Text>
+          <PrimaryButton label="다시 시도" onPress={source.reload} />
+        </View>
+      ) : null}
 
       <SectionHeader title={formatKoreanDateKey(selectedDate)} />
-      {history === null || selectedDay === null ? (
+      {source.status === 'loading' ? (
+        <EmptyState title="이 날의 기록을 불러오는 중이에요" />
+      ) : history === null || selectedDay === null ? (
         <EmptyState
           title={source.status === 'error' ? '이 날의 기록을 확인하지 못했습니다' : '이 날의 기록을 불러올 수 없습니다'}
-          description={
-            source.status === 'error'
-              ? source.message
-              : '날짜별 세션 조회 API가 없습니다. 예시 기록은 표시하지 않습니다.'
-          }
+          description={source.status === 'error' ? source.message : '잠시 후 다시 시도해 주세요.'}
         />
       ) : (
         <SelectedDay day={selectedDay} activities={selectedActivities} />
@@ -86,10 +95,8 @@ export default function RecordsScreen() {
         <WeekAchievementCard result={weekly} />
       ) : (
         <EmptyState
-          title={source.status === 'error' ? '이번 주 달성률을 확인하지 못했습니다' : '이번 주 달성률을 불러올 수 없습니다'}
-          description={
-            source.status === 'error' ? source.message : '목표 이력과 날짜별 세션이 있어야 계산합니다.'
-          }
+          title={source.status === 'error' ? '이번 주 달성률을 확인하지 못했습니다' : source.status === 'loading' ? '이번 주 달성률을 불러오는 중이에요' : '이번 주 달성률을 불러올 수 없습니다'}
+          description={source.status === 'error' ? source.message : '목표 이력과 날짜별 세션이 있어야 계산합니다.'}
         />
       )}
 
@@ -101,7 +108,7 @@ export default function RecordsScreen() {
         </View>
       ) : (
         <EmptyState
-          title={source.status === 'error' ? '연속 독서일을 확인하지 못했습니다' : '연속 독서일을 불러올 수 없습니다'}
+          title={source.status === 'error' ? '연속 독서일을 확인하지 못했습니다' : source.status === 'loading' ? '연속 독서일을 불러오는 중이에요' : '연속 독서일을 불러올 수 없습니다'}
           description={source.status === 'error' ? source.message : '목표 이력과 날짜별 세션이 있어야 계산합니다.'}
         />
       )}
@@ -178,5 +185,12 @@ const styles = StyleSheet.create({
   note: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  loading: {
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  retry: {
+    gap: spacing.sm,
   },
 });

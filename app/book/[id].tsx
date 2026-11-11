@@ -1,5 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/books/BookCover';
 import { StatusBadge } from '@/components/books/StatusBadge';
@@ -11,31 +12,69 @@ import { SectionHeader } from '@/components/common/SectionHeader';
 import { StarRating } from '@/components/common/StarRating';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
-import { getBookSummary } from '@/data/selectors';
+import { useFocusData } from '@/hooks/useFocusData';
+import { fetchBookDetail } from '@/lib/api/books';
+import { beginReadingSession } from '@/lib/reading/activeSession';
+import type { BookDetail } from '@/types/book';
 import { readParam } from '@/utils/book';
 import { clampPercent, formatDuration, formatKoreanDateKey } from '@/utils/format';
 
 export default function BookDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
-  const bookId = readParam(params.id);
-  const summary = bookId ? getBookSummary(bookId) : null;
+  const userBookId = readParam(params.id);
 
-  if (!summary) {
+  const load = useCallback(
+    () => (userBookId ? fetchBookDetail(userBookId) : Promise.reject(new Error('책 정보가 없습니다.'))),
+    [userBookId],
+  );
+  const state = useFocusData(load);
+
+  if (state.status !== 'ready') {
     return (
       <>
         <Stack.Screen options={{ title: '책 상세' }} />
         <Screen includeBottomInset>
-          <EmptyState title="책을 찾지 못했어요" />
+          {state.status === 'loading' ? (
+            <EmptyState title="불러오는 중이에요" />
+          ) : (
+            <>
+              <EmptyState title="책을 불러오지 못했어요" description={state.message} />
+              <PrimaryButton label="다시 시도" onPress={state.reload} />
+            </>
+          )}
         </Screen>
       </>
     );
   }
 
-  const { book, sessions, notes, indexes, review, totalDurationSeconds } = summary;
-  const canRead = book.status === 'reading' || book.status === 'paused';
+  return <BookDetailContent detail={state.data} />;
+}
+
+function startReading(userBookId: string, currentPage: number) {
+  const result = beginReadingSession(userBookId, currentPage);
+
+  if (result.kind === 'busy') {
+    Alert.alert('이미 진행 중인 독서가 있어요', '진행 중인 독서를 먼저 마쳐 주세요.', [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '진행 중인 독서로 이동',
+        onPress: () =>
+          router.push({ pathname: '/reading/session', params: { userBookId: result.userBookId } }),
+      },
+    ]);
+    return;
+  }
+
+  router.push({ pathname: '/reading/session', params: { userBookId } });
+}
+
+function BookDetailContent({ detail }: { detail: BookDetail }) {
+  const { book, sessions, indexes, review, totalDurationSeconds } = detail;
+  // A shelved book starts as 'wishlist' and becomes 'reading' when its first session is saved.
+  const canRead = book.status !== 'completed';
   const oneLineReviews = sessions
-    .map((session) => session.oneLineReview)
-    .filter((reviewText): reviewText is string => Boolean(reviewText));
+    .map((session) => ({ id: session.id, text: session.oneLineReview }))
+    .filter((item): item is { id: string; text: string } => Boolean(item.text));
 
   return (
     <>
@@ -78,17 +117,8 @@ export default function BookDetailScreen() {
 
         {canRead ? (
           <View style={styles.actions}>
-            <PrimaryButton
-              label="독서 시작"
-              onPress={() => router.push({ pathname: '/reading/session', params: { bookId: book.id } })}
-            />
-            {book.status === 'reading' ? (
-              <PrimaryButton
-                label="완독하기"
-                variant="secondary"
-                onPress={() => router.push({ pathname: '/book/complete', params: { bookId: book.id } })}
-              />
-            ) : null}
+            <PrimaryButton label="독서 시작" onPress={() => startReading(book.userBookId, book.currentPage)} />
+            {/* TODO(READ-05): 완독하기 버튼은 완독 처리를 실데이터로 연결할 때 다시 추가한다. 지금 화면은 mock 기반이다. */}
           </View>
         ) : null}
 
@@ -108,11 +138,11 @@ export default function BookDetailScreen() {
               <Fact label="총 페이지" value={`${book.currentPage}페이지`} />
               <View style={styles.block}>
                 <Text style={styles.factLabel}>별점</Text>
-                <StarRating value={review?.rating ?? book.rating ?? 0} />
+                <StarRating value={review?.rating ?? 0} />
               </View>
               <View style={styles.block}>
                 <Text style={styles.factLabel}>총평</Text>
-                <Text style={styles.body}>{review?.review ?? '총평이 아직 없어요.'}</Text>
+                <Text style={styles.body}>{review?.review || '총평이 아직 없어요.'}</Text>
               </View>
             </View>
           </>
@@ -122,34 +152,22 @@ export default function BookDetailScreen() {
         {oneLineReviews.length === 0 ? (
           <EmptyState title="남긴 한줄평이 없어요" />
         ) : (
-          oneLineReviews.map((text) => (
-            <View key={text} style={styles.panel}>
-              <Text style={styles.body}>{text}</Text>
-            </View>
-          ))
-        )}
-
-        <SectionHeader title="노트" />
-        {notes.length === 0 ? (
-          <EmptyState title="노트가 없어요" />
-        ) : (
-          notes.map((note) => (
-            <View key={note.id} style={styles.panel}>
-              {note.page ? <Text style={styles.factLabel}>{note.page}페이지</Text> : null}
-              <Text style={styles.body}>{note.content}</Text>
+          oneLineReviews.map((item) => (
+            <View key={item.id} style={styles.panel}>
+              <Text style={styles.body}>{item.text}</Text>
             </View>
           ))
         )}
 
         <SectionHeader title="인덱스" />
         {indexes.length === 0 ? (
-          <EmptyState title="저장한 문장이 없어요" description="독서 중에 기억하고 싶은 문장을 남길 수 있습니다." />
+          <EmptyState title="저장한 인덱스가 없어요" description="독서 중에 기억하고 싶은 페이지와 제목을 남길 수 있습니다." />
         ) : (
           indexes.map((index) => (
             <View key={index.id} style={styles.panel}>
               <Text style={styles.factLabel}>p.{index.page}</Text>
-              <Text style={styles.quote}>{index.quote}</Text>
-              {index.memo ? <Text style={styles.meta}>메모 · {index.memo}</Text> : null}
+              <Text style={styles.quote}>{index.title}</Text>
+              {index.quote ? <Text style={styles.meta}>{index.quote}</Text> : null}
             </View>
           ))
         )}

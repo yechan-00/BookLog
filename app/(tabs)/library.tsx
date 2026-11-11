@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BookCard } from '@/components/books/BookCard';
 import { BookshelfDevPreviewEntry } from '@/components/books/BookshelfDevPreview';
@@ -13,9 +13,10 @@ import { Screen } from '@/components/common/Screen';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { libraryTheme } from '@/constants/libraryTheme';
 import { radius, spacing, typography } from '@/constants/theme';
+import { useFocusData } from '@/hooks/useFocusData';
 import type { LibraryBook } from '@/types/book';
 import { startOfToday, toDateKey } from '@/utils/date';
-import { loadLibraryBooks, type LoadStatus } from '@/utils/readingSource';
+import { loadLibraryBooks } from '@/utils/readingSource';
 
 type LibraryFilter = 'all' | 'wishlist' | 'reading' | 'completed';
 
@@ -30,8 +31,9 @@ export default function LibraryScreen() {
   const today = toDateKey(startOfToday());
   const [filter, setFilter] = useState<LibraryFilter>('all');
   const [query, setQuery] = useState('');
-  const source = loadLibraryBooks();
-  const books = source.status === 'ready' ? source.value : [];
+  const loadBooks = useCallback(() => loadLibraryBooks(), []);
+  const source = useFocusData(loadBooks);
+  const books = source.status === 'ready' ? source.data : [];
   const trimmedQuery = query.trim().toLocaleLowerCase('ko-KR');
   const searchedBooks =
     source.status !== 'ready' || trimmedQuery.length === 0
@@ -45,6 +47,7 @@ export default function LibraryScreen() {
   const readingBooks = books.filter((book) => book.status === 'reading');
   const openSearch = () => router.push('/book/search');
   const canSearch = source.status === 'ready';
+  const openBook = (userBookId: string) => router.push(`/book/${userBookId}`);
 
   return (
     <Screen topInset backgroundColor={libraryTheme.background}>
@@ -104,8 +107,16 @@ export default function LibraryScreen() {
       </ScrollView>
 
       <SectionHeader title="책꽂이" />
-      {source.status !== 'ready' ? (
-        <EmptyState title={shelfTitle(source)} description={shelfDescription(source)} />
+      {source.status === 'loading' ? (
+        <View style={styles.loadingBlock}>
+          <ActivityIndicator color={libraryTheme.primaryBrown} />
+          <Text style={styles.searchNote}>서재를 불러오는 중이에요.</Text>
+        </View>
+      ) : source.status === 'error' ? (
+        <View style={styles.emptyActions}>
+          <EmptyState title="서재를 확인하지 못했습니다" description={source.message} />
+          <PrimaryButton label="다시 시도" onPress={source.reload} />
+        </View>
       ) : books.length === 0 ? (
         <EmptyBookshelf
           title="아직 서재가 비어 있어요."
@@ -119,22 +130,26 @@ export default function LibraryScreen() {
         <CoverBookshelf
           books={visibleBooks.map((book) => ({
             id: book.userBookId,
-            bookId: book.id,
+            bookId: book.userBookId,
             title: book.title,
             author: book.author,
             color: book.coverColor || book.spineColor,
             imageUrl: book.coverImageUrl,
             totalPages: book.totalPages,
           }))}
-          onPressBook={(bookId) => router.push(`/book/${bookId}`)}
+          onPressBook={openBook}
         />
       )}
 
       <SectionHeader title="목록" />
-      {source.status !== 'ready' ? (
+      {source.status === 'loading' ? (
+        <View style={styles.loadingBlock}>
+          <ActivityIndicator color={libraryTheme.primaryBrown} />
+        </View>
+      ) : source.status === 'error' ? (
         <View style={styles.emptyActions}>
-          <EmptyState title={shelfTitle(source)} description="예시 책은 표시하지 않습니다." />
-          <PrimaryButton label="책 등록하기" onPress={openSearch} />
+          <EmptyState title="서재를 확인하지 못했습니다" description={source.message} />
+          <PrimaryButton label="다시 시도" onPress={source.reload} />
         </View>
       ) : books.length === 0 ? (
         <View style={styles.emptyActions}>
@@ -145,16 +160,17 @@ export default function LibraryScreen() {
         <EmptyState title="이 상태의 책이 없어요" />
       ) : (
         visibleBooks.map((book) => (
-          <BookCard key={book.userBookId} book={book} onPress={() => router.push(`/book/${book.id}`)} />
+          <BookCard key={book.userBookId} book={book} onPress={() => openBook(book.userBookId)} />
         ))
       )}
 
       <SectionHeader title="먼지" />
-      {source.status !== 'ready' ? (
-        <EmptyState
-          title={source.status === 'error' ? '먼지를 확인하지 못했습니다' : '먼지를 불러올 수 없습니다'}
-          description={shelfDescription(source)}
-        />
+      {source.status === 'loading' ? (
+        <View style={styles.loadingBlock}>
+          <ActivityIndicator color={libraryTheme.primaryBrown} />
+        </View>
+      ) : source.status === 'error' ? (
+        <EmptyState title="먼지를 확인하지 못했습니다" description={source.message} />
       ) : readingBooks.length === 0 ? (
         <EmptyState title="읽는 중인 책이 없습니다" description="먼지 상태는 읽는 중인 책에만 계산합니다." />
       ) : (
@@ -174,14 +190,6 @@ function DustRow({ book, today }: { book: LibraryBook; today: string }) {
       lastWipedOn={null}
     />
   );
-}
-
-function shelfTitle(source: LoadStatus<LibraryBook[]>): string {
-  return source.status === 'error' ? '서재를 확인하지 못했습니다' : '서재를 불러올 수 없습니다';
-}
-
-function shelfDescription(source: LoadStatus<LibraryBook[]>): string {
-  return source.status === 'error' ? source.message : '서재 조회 API가 없습니다. 예시 책은 표시하지 않습니다.';
 }
 
 const styles = StyleSheet.create({
@@ -272,5 +280,9 @@ const styles = StyleSheet.create({
   },
   emptyActions: {
     gap: spacing.sm,
+  },
+  loadingBlock: {
+    gap: spacing.sm,
+    alignItems: 'flex-start',
   },
 });

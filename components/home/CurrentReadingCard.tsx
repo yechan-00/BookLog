@@ -17,7 +17,7 @@ export function CurrentReadingCard({ book }: CurrentReadingCardProps) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${book.title} 상세`}
-        onPress={() => router.push(`/book/${book.id}`)}
+        onPress={() => router.push(`/book/${book.userBookId}`)}
         style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       >
         <ShelfBookCover
@@ -43,7 +43,7 @@ export function CurrentReadingCard({ book }: CurrentReadingCardProps) {
       </Pressable>
       <PrimaryButton
         label="이어 읽기"
-        onPress={() => router.push({ pathname: '/reading/session', params: { bookId: book.id } })}
+        onPress={() => router.push({ pathname: '/reading/session', params: { userBookId: book.userBookId } })}
         primaryColor={libraryTheme.primaryBrown}
         primaryPressedColor={libraryTheme.darkBrown}
         onPrimaryColor={libraryTheme.onPrimary}
