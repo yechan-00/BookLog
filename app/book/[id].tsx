@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/books/BookCover';
@@ -10,10 +10,12 @@ import { ProgressBar } from '@/components/common/ProgressBar';
 import { Screen } from '@/components/common/Screen';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { StarRating } from '@/components/common/StarRating';
+import { IndexFormModal, type DraftIndex } from '@/components/reading/IndexFormModal';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
 import { fetchBookDetail } from '@/lib/api/books';
+import { addIndex } from '@/lib/api/indexes';
 import { startReading } from '@/lib/reading/startReading';
 import type { BookDetail } from '@/types/book';
 import { readParam } from '@/utils/book';
@@ -47,16 +49,28 @@ export default function BookDetailScreen() {
     );
   }
 
-  return <BookDetailContent detail={state.data} />;
+  return <BookDetailContent detail={state.data} onChanged={state.refresh} />;
 }
 
-function BookDetailContent({ detail }: { detail: BookDetail }) {
+function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChanged: () => void }) {
+  const [indexOpen, setIndexOpen] = useState(false);
+  const [indexError, setIndexError] = useState('');
   const { book, sessions, indexes, review, totalDurationSeconds } = detail;
   // A shelved book starts as 'wishlist' and becomes 'reading' when its first session is saved.
   const canRead = book.status !== 'completed';
   const oneLineReviews = sessions
     .map((session) => ({ id: session.id, text: session.oneLineReview }))
     .filter((item): item is { id: string; text: string } => Boolean(item.text));
+
+  const handleSaveIndex = async (draft: DraftIndex) => {
+    try {
+      await addIndex({ userBookId: book.userBookId, ...draft });
+      setIndexError('');
+      onChanged();
+    } catch (error) {
+      setIndexError(error instanceof Error ? error.message : '인덱스를 저장하지 못했습니다.');
+    }
+  };
 
   return (
     <>
@@ -142,6 +156,8 @@ function BookDetailContent({ detail }: { detail: BookDetail }) {
         )}
 
         <SectionHeader title="인덱스" />
+        <PrimaryButton label="인덱스 추가" variant="secondary" onPress={() => setIndexOpen(true)} />
+        {indexError ? <Text style={styles.error}>{indexError}</Text> : null}
         {indexes.length === 0 ? (
           <EmptyState title="저장한 인덱스가 없어요" description="독서 중에 기억하고 싶은 페이지와 제목을 남길 수 있습니다." />
         ) : (
@@ -154,6 +170,15 @@ function BookDetailContent({ detail }: { detail: BookDetail }) {
           ))
         )}
       </Screen>
+
+      {indexOpen ? (
+        <IndexFormModal
+          visible
+          initialPage={book.currentPage}
+          onClose={() => setIndexOpen(false)}
+          onSave={handleSaveIndex}
+        />
+      ) : null}
     </>
   );
 }
@@ -226,5 +251,9 @@ const styles = StyleSheet.create({
   quote: {
     ...typography.bodyStrong,
     color: colors.text,
+  },
+  error: {
+    ...typography.caption,
+    color: colors.warning,
   },
 });
