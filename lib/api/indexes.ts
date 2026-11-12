@@ -53,3 +53,16 @@ export async function fetchIndexes(userBookId: string): Promise<BookIndex[]> {
 
   return data.map(toBookIndex);
 }
+
+export async function deleteIndex(indexId: string): Promise<void> {
+  const { data, error } = await supabase.from('book_indexes').delete().eq('id', indexId).select('id');
+
+  if (error) {
+    throw toError(error);
+  }
+
+  // RLS hides other users' rows instead of failing, so an empty result means nothing was deleted.
+  if (data.length === 0) {
+    throw new Error('삭제할 인덱스를 찾지 못했습니다.');
+  }
+}

@@ -1,6 +1,6 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/books/BookCover';
 import { StatusBadge } from '@/components/books/StatusBadge';
@@ -14,8 +14,11 @@ import { IndexFormModal, type DraftIndex } from '@/components/reading/IndexFormM
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
-import { fetchBookDetail } from '@/lib/api/books';
-import { addIndex } from '@/lib/api/indexes';
+import { deleteUserBook, fetchBookDetail } from '@/lib/api/books';
+import { addIndex, deleteIndex } from '@/lib/api/indexes';
+import { deleteSession } from '@/lib/api/sessions';
+import { loadActiveSession } from '@/lib/reading/activeSession';
+import { refreshEngagementReminder } from '@/lib/reading/reminders';
 import { startReading } from '@/lib/reading/startReading';
 import type { BookDetail } from '@/types/book';
 import { readParam } from '@/utils/book';
@@ -54,22 +57,79 @@ export default function BookDetailScreen() {
 
 function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChanged: () => void }) {
   const [indexOpen, setIndexOpen] = useState(false);
-  const [indexError, setIndexError] = useState('');
+  const [actionError, setActionError] = useState('');
   const { book, sessions, indexes, review, totalDurationSeconds } = detail;
   // A shelved book starts as 'wishlist' and becomes 'reading' when its first session is saved.
   const canRead = book.status !== 'completed';
-  const oneLineReviews = sessions
-    .map((session) => ({ id: session.id, text: session.oneLineReview }))
-    .filter((item): item is { id: string; text: string } => Boolean(item.text));
 
   const handleSaveIndex = async (draft: DraftIndex) => {
     try {
       await addIndex({ userBookId: book.userBookId, ...draft });
-      setIndexError('');
+      setActionError('');
       onChanged();
     } catch (error) {
-      setIndexError(error instanceof Error ? error.message : '인덱스를 저장하지 못했습니다.');
+      setActionError(error instanceof Error ? error.message : '인덱스를 저장하지 못했습니다.');
     }
+  };
+
+  const confirmDelete = (title: string, message: string, onConfirm: () => void) => {
+    Alert.alert(title, message, [
+      { text: '취소', style: 'cancel' },
+      { text: '삭제', style: 'destructive', onPress: onConfirm },
+    ]);
+  };
+
+  const runAction = async (action: () => Promise<void>, fallbackMessage: string) => {
+    try {
+      await action();
+      setActionError('');
+      onChanged();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : fallbackMessage);
+    }
+  };
+
+  const handleDeleteIndex = (indexId: string) =>
+    confirmDelete('인덱스를 삭제할까요?', '삭제한 인덱스는 되돌릴 수 없어요.', () => {
+      void runAction(() => deleteIndex(indexId), '인덱스를 삭제하지 못했습니다.');
+    });
+
+  const handleDeleteSession = (sessionId: string) =>
+    confirmDelete(
+      '이 독서 기록을 삭제할까요?',
+      '읽은 시간과 페이지가 달성률과 연속 독서일에서도 빠져요. 되돌릴 수 없어요.',
+      () => {
+        void runAction(async () => {
+          await deleteSession(sessionId, book.userBookId);
+          // Today's goal may no longer be met, so the reminder has to be rebuilt.
+          void refreshEngagementReminder();
+        }, '독서 기록을 삭제하지 못했습니다.');
+      },
+    );
+
+  const handleDeleteBook = () => {
+    if (loadActiveSession()?.userBookId === book.userBookId) {
+      setActionError('진행 중인 독서가 있어요. 먼저 독서를 종료한 뒤 삭제해 주세요.');
+      return;
+    }
+
+    confirmDelete(
+      '서재에서 책을 삭제할까요?',
+      '독서 기록, 인덱스, 완독 기록이 모두 함께 삭제돼요. 되돌릴 수 없어요. 잠시 쉬고 싶다면 상태를 임시 중단으로 바꿔 주세요.',
+      () => {
+        void (async () => {
+          try {
+            await deleteUserBook(book.userBookId);
+          } catch (error) {
+            setActionError(error instanceof Error ? error.message : '책을 삭제하지 못했습니다.');
+            return;
+          }
+
+          void refreshEngagementReminder();
+          router.dismissTo('/(tabs)/library');
+        })();
+      },
+    );
   };
 
   return (
@@ -111,6 +171,8 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
           />
         </View>
 
+        {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
+
         {canRead ? (
           <View style={styles.actions}>
             <PrimaryButton label="독서 시작" onPress={() => startReading(book.userBookId, book.currentPage)} />
@@ -150,31 +212,43 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
           </>
         ) : null}
 
-        <SectionHeader title="한줄평" />
-        {oneLineReviews.length === 0 ? (
-          <EmptyState title="남긴 한줄평이 없어요" />
+        <SectionHeader title="독서 기록" />
+        {sessions.length === 0 ? (
+          <EmptyState title="아직 독서 기록이 없어요" description="독서를 마치고 저장하면 여기에 쌓여요." />
         ) : (
-          oneLineReviews.map((item) => (
-            <View key={item.id} style={styles.panel}>
-              <Text style={styles.body}>{item.text}</Text>
+          sessions.map((session) => (
+            <View key={session.id} style={styles.panel}>
+              <View style={styles.rowBetween}>
+                <Text style={styles.factLabel}>
+                  {formatKoreanDateKey(session.date)} · {formatDuration(session.duration)} · {session.startPage}p →{' '}
+                  {session.endPage}p
+                </Text>
+                <DeleteButton label="독서 기록 삭제" onPress={() => handleDeleteSession(session.id)} />
+              </View>
+              {session.oneLineReview ? <Text style={styles.body}>{session.oneLineReview}</Text> : null}
             </View>
           ))
         )}
 
         <SectionHeader title="인덱스" />
         <PrimaryButton label="인덱스 추가" variant="secondary" onPress={() => setIndexOpen(true)} />
-        {indexError ? <Text style={styles.error}>{indexError}</Text> : null}
         {indexes.length === 0 ? (
           <EmptyState title="저장한 인덱스가 없어요" description="독서 중에 기억하고 싶은 페이지와 제목을 남길 수 있습니다." />
         ) : (
           indexes.map((index) => (
             <View key={index.id} style={styles.panel}>
-              <Text style={styles.factLabel}>p.{index.page}</Text>
+              <View style={styles.rowBetween}>
+                <Text style={styles.factLabel}>p.{index.page}</Text>
+                <DeleteButton label="인덱스 삭제" onPress={() => handleDeleteIndex(index.id)} />
+              </View>
               <Text style={styles.quote}>{index.title}</Text>
               {index.quote ? <Text style={styles.meta}>{index.quote}</Text> : null}
             </View>
           ))
         )}
+
+        <SectionHeader title="서재 관리" />
+        <PrimaryButton label="서재에서 삭제" variant="secondary" onPress={handleDeleteBook} />
       </Screen>
 
       {indexOpen ? (
@@ -186,6 +260,14 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
         />
       ) : null}
     </>
+  );
+}
+
+function DeleteButton({ label, onPress }: { label: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.deleteButton}>
+      <Text style={styles.deleteLabel}>삭제</Text>
+    </Pressable>
   );
 }
 
@@ -261,5 +343,22 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.warning,
+  },
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteLabel: {
+    ...typography.caption,
+    color: colors.warning,
+    fontWeight: '600',
   },
 });
