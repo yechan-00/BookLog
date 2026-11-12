@@ -7,6 +7,8 @@ import { Screen } from '@/components/common/Screen';
 import { TextField } from '@/components/common/TextField';
 import { colors } from '@/constants/colors';
 import { card, radius, spacing, typography } from '@/constants/theme';
+import { replaceGoal, setGoalNotificationsEnabled } from '@/lib/api/goals';
+import { useGoal } from '@/lib/goals/GoalProvider';
 import {
   getNotificationPermission,
   listScheduledEngagementReminders,
@@ -15,7 +17,9 @@ import {
   syncEngagementReminder,
 } from '@/lib/notifications';
 import type { NotificationPermissionResult } from '@/lib/notifications/types';
+import { refreshEngagementReminder } from '@/lib/reading/reminders';
 import { validateGoalDraft, type GoalDraft } from '@/utils/goalForm';
+import { describeGoal } from '@/utils/goalText';
 
 const dayOptions = [
   { day: 0, label: '일' },
@@ -42,7 +46,18 @@ const emptyDraft: GoalDraft = {
 };
 
 export default function SettingsScreen() {
-  const [draft, setDraft] = useState<GoalDraft>(emptyDraft);
+  const { goal, refresh: refreshGoal } = useGoal();
+  const [draft, setDraft] = useState<GoalDraft>(() =>
+    goal
+      ? {
+          type: goal.type,
+          target: String(goal.targetValue),
+          days: goal.daysOfWeek,
+          reminderTime: goal.reminderTime ?? '',
+        }
+      : emptyDraft,
+  );
+  const [isSavingGoal, setIsSavingGoal] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [permission, setPermission] = useState<NotificationPermissionResult | null>(null);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
@@ -88,13 +103,41 @@ export default function SettingsScreen() {
     setDraft((current) => ({ ...current, ...patch }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!parsed.valid) {
       setSaveMessage(parsed.message);
       return;
     }
 
-    setSaveMessage('목표 저장 API가 아직 없어 저장하지 않았습니다. 알림 예약도 바꾸지 않았습니다.');
+    if (isSavingGoal) {
+      return;
+    }
+
+    setIsSavingGoal(true);
+    setSaveMessage(null);
+
+    try {
+      await replaceGoal({
+        type: parsed.type,
+        targetValue: parsed.targetValue,
+        daysOfWeek: parsed.daysOfWeek,
+        reminderTime: parsed.reminderTime,
+      });
+    } catch (error) {
+      setSaveMessage(error instanceof Error ? error.message : '목표를 저장하지 못했습니다.');
+      setIsSavingGoal(false);
+      return;
+    }
+
+    const reminder = await refreshEngagementReminder();
+    await refreshDeviceState();
+    refreshGoal();
+    setIsSavingGoal(false);
+    setSaveMessage(
+      reminder.status === 'failed'
+        ? `목표는 저장했어요. 알림은 갱신하지 못했어요: ${reminder.reason ?? '알 수 없는 오류'}`
+        : '목표를 저장했어요. 지난 날짜의 달성률은 당시 목표로 계산돼요.',
+    );
   };
 
   const handleRequestPermission = async () => {
@@ -126,8 +169,21 @@ export default function SettingsScreen() {
 
     setIsEngagementBusy(true);
     setEngagementMessage(null);
+
+    // Saved too, so a later goal save does not switch the reminder back on.
+    if (goal) {
+      try {
+        await setGoalNotificationsEnabled(goal.id, false);
+      } catch (error) {
+        setIsEngagementBusy(false);
+        setEngagementMessage(error instanceof Error ? error.message : '알림 설정을 저장하지 못했습니다.');
+        return;
+      }
+    }
+
     const result = await syncEngagementReminder({ goal: null, achievedDates: [] });
     await refreshDeviceState();
+    refreshGoal();
     setIsEngagementBusy(false);
 
     if (result.status === 'failed') {
@@ -161,8 +217,27 @@ export default function SettingsScreen() {
       return;
     }
 
+    if (!goal) {
+      setIsEngagementBusy(false);
+      setEngagementMessage('저장된 목표가 없어 알림을 예약하지 않았습니다. 목표를 먼저 저장해 주세요.');
+      return;
+    }
+
+    try {
+      await setGoalNotificationsEnabled(goal.id, true);
+    } catch (error) {
+      setIsEngagementBusy(false);
+      setEngagementMessage(error instanceof Error ? error.message : '알림 설정을 저장하지 못했습니다.');
+      return;
+    }
+
+    const result = await refreshEngagementReminder();
+    await refreshDeviceState();
+    refreshGoal();
     setIsEngagementBusy(false);
-    setEngagementMessage('저장된 목표가 없어 알림을 예약하지 않았습니다. 목표 저장이 된 뒤에 다시 켤 수 있습니다.');
+    setEngagementMessage(
+      result.status === 'failed' ? (result.reason ?? '참여 유도 알림을 예약하지 못했습니다.') : '참여 유도 알림을 켰어요.',
+    );
   };
 
   return (
@@ -173,7 +248,7 @@ export default function SettingsScreen() {
 
         <View style={styles.group}>
           <Text style={styles.groupTitle}>현재 목표</Text>
-          <Text style={styles.note}>현재 목표를 불러올 수 없습니다. 목표 조회 API가 아직 없습니다.</Text>
+          <Text style={styles.note}>{goal ? describeGoal(goal) : '설정된 목표가 없어요.'}</Text>
         </View>
 
         <View style={styles.group}>
@@ -222,7 +297,14 @@ export default function SettingsScreen() {
             onChangeText={(reminderTime) => updateDraft({ reminderTime })}
             placeholder="21:00"
           />
-          <PrimaryButton label="목표 저장" onPress={handleSave} disabled={!parsed.valid} />
+          <PrimaryButton
+            label="목표 저장"
+            onPress={() => {
+              void handleSave();
+            }}
+            disabled={!parsed.valid || isSavingGoal}
+            loading={isSavingGoal}
+          />
           {!parsed.valid ? <Text style={styles.note}>{parsed.message}</Text> : null}
           {saveMessage ? <Text style={styles.note}>{saveMessage}</Text> : null}
         </View>
