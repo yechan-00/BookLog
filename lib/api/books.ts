@@ -96,3 +96,19 @@ export async function fetchBookDetail(userBookId: string): Promise<BookDetail> {
     totalDurationSeconds: sessions.reduce((sum, session) => sum + session.duration, 0),
   };
 }
+
+/**
+ * Removes the book from the user's shelf. Its sessions, indexes, review and dust-wipe logs go with it
+ * (cascade); the shared `books` catalog row stays for other users.
+ */
+export async function deleteUserBook(userBookId: string): Promise<void> {
+  const { data, error } = await supabase.from('user_books').delete().eq('id', userBookId).select('id');
+
+  if (error) {
+    throw toError(error);
+  }
+
+  if (data.length === 0) {
+    throw new Error('삭제할 책을 찾지 못했습니다.');
+  }
+}
