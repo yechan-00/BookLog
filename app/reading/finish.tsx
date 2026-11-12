@@ -173,8 +173,14 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         </View>
         {isLastPage ? (
           <View style={styles.notice}>
-            <Text style={styles.noticeText}>마지막 페이지까지 읽었어요. 책 상세에서 완독 처리를 할 수 있어요.</Text>
+            <Text style={styles.noticeText}>마지막 페이지까지 읽었어요. 완독 처리를 해 볼까요?</Text>
           </View>
+        ) : null}
+        {isLastPage ? (
+          <PrimaryButton
+            label="완독 처리하기"
+            onPress={() => router.replace({ pathname: '/book/complete', params: { userBookId: book.userBookId } })}
+          />
         ) : null}
         <PrimaryButton label="책 상세로" onPress={() => goToBookDetail(book.userBookId)} />
       </FinishShell>
