@@ -12,16 +12,17 @@ import { SectionHeader } from '@/components/common/SectionHeader';
 import { StarRating } from '@/components/common/StarRating';
 import { IndexFormModal, type DraftIndex } from '@/components/reading/IndexFormModal';
 import { colors } from '@/constants/colors';
-import { card, spacing, typography } from '@/constants/theme';
+import { card, radius, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
-import { deleteUserBook, fetchBookDetail } from '@/lib/api/books';
+import { deleteUserBook, fetchBookDetail, updateBookStatus } from '@/lib/api/books';
 import { addIndex, deleteIndex } from '@/lib/api/indexes';
 import { deleteSession } from '@/lib/api/sessions';
 import { loadActiveSession } from '@/lib/reading/activeSession';
 import { refreshEngagementReminder } from '@/lib/reading/reminders';
 import { startReading } from '@/lib/reading/startReading';
-import type { BookDetail } from '@/types/book';
-import { readParam } from '@/utils/book';
+import type { BookDetail, BookStatus } from '@/types/book';
+import { bookStatusLabel, readParam } from '@/utils/book';
+import { nextStatuses } from '@/utils/bookStatus';
 import { clampPercent, formatDuration, formatKoreanDateKey } from '@/utils/format';
 
 export default function BookDetailScreen() {
@@ -87,6 +88,36 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
     } catch (error) {
       setActionError(error instanceof Error ? error.message : fallbackMessage);
     }
+  };
+
+  const changeStatus = (to: BookStatus) => {
+    if (loadActiveSession()?.userBookId === book.userBookId) {
+      setActionError('진행 중인 독서가 있어요. 먼저 독서를 종료한 뒤 상태를 바꿔 주세요.');
+      return;
+    }
+
+    if (to === 'completed') {
+      router.push({ pathname: '/book/complete', params: { userBookId: book.userBookId } });
+      return;
+    }
+
+    const apply = () => {
+      void runAction(() => updateBookStatus(book.userBookId, book.status, to), '상태를 바꾸지 못했습니다.');
+    };
+
+    if (book.status === 'completed') {
+      Alert.alert(
+        "'읽고 싶음'으로 되돌릴까요?",
+        '진행률이 0으로 돌아가고 완독일이 지워져요. 지난 독서 기록과 인덱스는 그대로 남아요.',
+        [
+          { text: '취소', style: 'cancel' },
+          { text: '되돌리기', onPress: apply },
+        ],
+      );
+      return;
+    }
+
+    apply();
   };
 
   const handleDeleteIndex = (indexId: string) =>
@@ -171,18 +202,34 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
           />
         </View>
 
+        <View style={styles.panel}>
+          <Text style={styles.factLabel}>상태 변경</Text>
+          <View style={styles.choices}>
+            {nextStatuses(book.status).map((status) => (
+              <Pressable
+                key={status}
+                accessibilityRole="button"
+                accessibilityLabel={`${bookStatusLabel[status]}(으)로 바꾸기`}
+                onPress={() => changeStatus(status)}
+                style={styles.chip}
+              >
+                <Text style={styles.chipLabel}>{bookStatusLabel[status]}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {book.status === 'reading' ? (
+            <Text style={styles.meta}>읽는 중인 책은 읽고 싶음으로 바로 되돌릴 수 없어요. 임시 중단을 거쳐 주세요.</Text>
+          ) : null}
+        </View>
+
         {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
 
         {canRead ? (
           <View style={styles.actions}>
-            <PrimaryButton label="독서 시작" onPress={() => startReading(book.userBookId, book.currentPage)} />
-            {book.status === 'reading' ? (
-              <PrimaryButton
-                label="완독하기"
-                variant="secondary"
-                onPress={() => router.push({ pathname: '/book/complete', params: { userBookId: book.userBookId } })}
-              />
-            ) : null}
+            <PrimaryButton
+              label="집중 독서 시작"
+              onPress={() => startReading(book.userBookId, book.currentPage, book.status)}
+            />
           </View>
         ) : null}
 
@@ -343,6 +390,27 @@ const styles = StyleSheet.create({
   error: {
     ...typography.caption,
     color: colors.warning,
+  },
+  choices: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  chip: {
+    minHeight: 44,
+    minWidth: 44,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipLabel: {
+    ...typography.caption,
+    color: colors.text,
+    fontWeight: '600',
   },
   rowBetween: {
     flexDirection: 'row',
