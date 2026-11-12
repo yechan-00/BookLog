@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -114,7 +114,13 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
         {canRead ? (
           <View style={styles.actions}>
             <PrimaryButton label="독서 시작" onPress={() => startReading(book.userBookId, book.currentPage)} />
-            {/* TODO(READ-05): 완독하기 버튼은 완독 처리를 실데이터로 연결할 때 다시 추가한다. 지금 화면은 mock 기반이다. */}
+            {book.status === 'reading' ? (
+              <PrimaryButton
+                label="완독하기"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/book/complete', params: { userBookId: book.userBookId } })}
+              />
+            ) : null}
           </View>
         ) : null}
 
