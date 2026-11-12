@@ -18,6 +18,7 @@ import { useFocusReturn } from '@/hooks/useFocusReturn';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { addIndex } from '@/lib/api/indexes';
 import { loadActiveSession, registerFocusExit } from '@/lib/reading/activeSession';
+import { armGoalReached } from '@/lib/reading/goalReached';
 import type { LibraryBook } from '@/types/book';
 import type { ActiveReadingSession } from '@/types/reading';
 import { readParam } from '@/utils/book';
@@ -101,6 +102,22 @@ function ActiveSession({ book, session, onSessionChange }: ActiveSessionProps) {
   const [indexOpen, setIndexOpen] = useState(false);
   const [savedIndexes, setSavedIndexes] = useState<DraftIndex[]>([]);
   const [indexError, setIndexError] = useState('');
+  const [alertNotice, setAlertNotice] = useState<string | null>(null);
+
+  // A resumed session recomputes the remaining time from its start, so reopening stays accurate.
+  useEffect(() => {
+    let isCancelled = false;
+
+    armGoalReached(session.startedAt).then((result) => {
+      if (!isCancelled && result.status === 'failed') {
+        setAlertNotice(`목표 도달 알림을 예약하지 못했어요: ${result.reason}`);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session.startedAt]);
 
   useFocusReturn(() => {
     const next = registerFocusExit();
@@ -156,6 +173,7 @@ function ActiveSession({ book, session, onSessionChange }: ActiveSessionProps) {
 
         <PrimaryButton label="인덱스 추가" variant="secondary" onPress={() => setIndexOpen(true)} />
         {indexError ? <Text style={styles.error}>{indexError}</Text> : null}
+        {alertNotice ? <Text style={styles.meta}>{alertNotice}</Text> : null}
 
         {savedIndexes.length > 0 ? (
           <View style={styles.list}>
