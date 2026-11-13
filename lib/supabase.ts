@@ -33,9 +33,15 @@ function invalidSupabaseUrlMessage(): string {
   ].join(' ');
 }
 
+// 로컬 Supabase(docker)로 개발할 때만 쓰는 주소다. 에뮬레이터는 호스트를 10.0.2.2로 본다.
+const LOCAL_DEV_HOSTNAMES = ['localhost', '127.0.0.1', '10.0.2.2'];
+
 function isSupabaseProjectUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
+    if (__DEV__ && parsed.protocol === 'http:' && LOCAL_DEV_HOSTNAMES.includes(parsed.hostname)) {
+      return true;
+    }
     return parsed.protocol === 'https:' && parsed.hostname.endsWith('.supabase.co');
   } catch {
     return false;
