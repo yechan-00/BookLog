@@ -392,6 +392,49 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_dashboard_metrics: {
+        Args: {
+          p_days?: number
+          p_today: string
+        }
+        Returns: {
+          achieved_day_count: number
+          achievement_rate: number
+          active_user_count: number
+          conversion_rate: number
+          converted_user_count: number
+          engagement_event_count: number
+          member_count: number
+          resume_rate: number
+          resumed_event_count: number
+          scheduled_day_count: number
+          session_count: number
+        }[]
+      }
+      admin_list_members: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+        }
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          is_suspended: boolean
+          last_read_on: string
+          nickname: string
+          session_count: number
+          total_count: number
+        }[]
+      }
+      admin_set_suspended: {
+        Args: {
+          p_suspended: boolean
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       complete_book: {
         Args: {
           p_completed_on: string
