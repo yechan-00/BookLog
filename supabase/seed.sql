@@ -108,3 +108,101 @@ begin
     (v_uid, ub_dollargut, 4, '잠들기 전에 읽기 좋은 이야기.');
 end;
 $$;
+
+-- 관리자 웹 확인용 (ADMIN-01~03): 관리자 1명과 지표가 갈리는 일반 회원 6명. 로컬 전용 비밀번호.
+-- 회원 7은 세션이 없고(전환 X), 회원 6은 오래전에만 읽었고(활성 X), 회원 5는 이용 정지 상태다.
+do $$
+declare
+  v_admin constant uuid := '00000000-0000-4000-8000-000000000099';
+  v_today constant date := current_date;
+  v_book uuid;
+  v_uid uuid;
+  v_ub uuid;
+  v_goal uuid;
+  i integer;
+  d integer;
+  v_minutes integer;
+begin
+  insert into auth.users (
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change
+  ) values (
+    '00000000-0000-0000-0000-000000000000', v_admin, 'authenticated', 'authenticated',
+    'admin@booklog.local', crypt('booklog-admin-local', gen_salt('bf')), now(),
+    '{"provider":"email","providers":["email"]}', '{"nickname":"운영자"}', now(), now(),
+    '', '', '', ''
+  );
+  insert into auth.identities (id, user_id, provider_id, provider, identity_data, created_at, updated_at, last_sign_in_at)
+  values (
+    gen_random_uuid(), v_admin, v_admin::text, 'email',
+    jsonb_build_object('sub', v_admin::text, 'email', 'admin@booklog.local', 'email_verified', true),
+    now(), now(), now()
+  );
+  update public.profiles set role = 'admin' where id = v_admin;
+
+  select id into v_book from public.books order by isbn limit 1;
+
+  for i in 2..7 loop
+    v_uid := ('00000000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid;
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+      confirmation_token, recovery_token, email_change_token_new, email_change
+    ) values (
+      '00000000-0000-0000-0000-000000000000', v_uid, 'authenticated', 'authenticated',
+      'member' || i || '@booklog.local', crypt('booklog-local-test', gen_salt('bf')), now(),
+      '{"provider":"email","providers":["email"]}', jsonb_build_object('nickname', '회원' || i),
+      now() - make_interval(days => 20 - i), now(), '', '', '', ''
+    );
+    insert into auth.identities (id, user_id, provider_id, provider, identity_data, created_at, updated_at, last_sign_in_at)
+    values (
+      gen_random_uuid(), v_uid, v_uid::text, 'email',
+      jsonb_build_object('sub', v_uid::text, 'email', 'member' || i || '@booklog.local', 'email_verified', true),
+      now(), now(), now()
+    );
+
+    insert into public.user_books (user_id, book_id, status, total_pages, current_page, started_on)
+    values (v_uid, v_book, 'reading', 300, 0, v_today - 14)
+    returning id into v_ub;
+
+    -- 홀수 번호는 쪽수 목표(매일 10쪽), 짝수 번호는 시간 목표(평일 20분)
+    insert into public.reading_goals (user_id, type, target_value, days_of_week, starts_on)
+    values (
+      v_uid,
+      case when i % 2 = 1 then 'pages' else 'time' end,
+      case when i % 2 = 1 then 10 else 20 end,
+      case when i % 2 = 1 then array[0,1,2,3,4,5,6]::smallint[] else array[1,2,3,4,5]::smallint[] end,
+      v_today - 14
+    ) returning id into v_goal;
+
+    if i <> 7 then
+      for d in (case when i = 6 then 12 else 1 end)..(case when i = 6 then 13 else 10 end) loop
+        if (d + i) % 3 <> 0 then
+          v_minutes := 10 + (i * d) % 25;
+          insert into public.reading_sessions (
+            user_id, user_book_id, read_on, started_at, ended_at, duration_seconds, start_page, end_page
+          ) values (
+            v_uid, v_ub, v_today - d,
+            (v_today - d + time '21:00')::timestamptz,
+            (v_today - d + time '21:00')::timestamptz + make_interval(mins => v_minutes),
+            v_minutes * 60, d * 10, d * 10 + 4 + (i * d) % 9
+          );
+        end if;
+      end loop;
+    end if;
+
+    if i in (2, 3, 4) then
+      insert into public.notification_logs (user_id, goal_id, kind, sent_at)
+      values (v_uid, v_goal, 'engagement', (v_today - 3 + time '21:30')::timestamptz);
+    end if;
+    if i = 3 then
+      insert into public.dust_wipe_logs (user_id, user_book_id, wiped_at, dust_level)
+      values (v_uid, v_ub, (v_today - 4 + time '20:00')::timestamptz, 2);
+    end if;
+    if i = 5 then
+      update public.profiles set is_suspended = true where id = v_uid;
+    end if;
+  end loop;
+end;
+$$;

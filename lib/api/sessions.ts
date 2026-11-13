@@ -84,3 +84,58 @@ export async function fetchSessions(userBookId: string): Promise<ReadingSession[
 
   return data.map(toReadingSession);
 }
+
+/**
+ * Deletes one saved session and puts the book's current page and last read date back in line
+ * with the sessions that remain. A completed book keeps its pages (completion sets them to the total).
+ * Done in separate calls: a failure after the delete leaves the book's page stale until the next session.
+ */
+export async function deleteSession(sessionId: string, userBookId: string): Promise<void> {
+  const { data: deleted, error: deleteError } = await supabase
+    .from('reading_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .select('id');
+
+  if (deleteError) {
+    throw toError(deleteError);
+  }
+
+  if (deleted.length === 0) {
+    throw new Error('삭제할 독서 기록을 찾지 못했습니다.');
+  }
+
+  const [remaining, book] = await Promise.all([
+    supabase
+      .from('reading_sessions')
+      .select('read_on, end_page')
+      .eq('user_book_id', userBookId)
+      .order('started_at', { ascending: false }),
+    supabase.from('user_books').select('status').eq('id', userBookId).single(),
+  ]);
+
+  if (remaining.error) {
+    throw toError(remaining.error);
+  }
+
+  if (book.error) {
+    throw toError(book.error);
+  }
+
+  if (book.data.status === 'completed') {
+    return;
+  }
+
+  const lastReadOn = remaining.data.reduce<string | null>(
+    (latest, row) => (latest === null || row.read_on > latest ? row.read_on : latest),
+    null,
+  );
+  const { error: updateError } = await supabase
+    .from('user_books')
+    .update({ current_page: remaining.data[0]?.end_page ?? 0, last_read_on: lastReadOn })
+    .eq('id', userBookId);
+
+  if (updateError) {
+    throw toError(updateError);
+  }
+}

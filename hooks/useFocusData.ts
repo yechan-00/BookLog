@@ -10,7 +10,9 @@ type FocusDataState<T> =
  * Loads on every screen focus, so data is fresh after coming back from another screen.
  * `load` must be stable (wrap it in useCallback).
  */
-export function useFocusData<T>(load: () => Promise<T>): FocusDataState<T> & { reload: () => void } {
+export function useFocusData<T>(
+  load: () => Promise<T>,
+): FocusDataState<T> & { reload: () => void; refresh: () => void } {
   const [state, setState] = useState<FocusDataState<T>>({ status: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
@@ -46,5 +48,8 @@ export function useFocusData<T>(load: () => Promise<T>): FocusDataState<T> & { r
     setAttempt((count) => count + 1);
   }, []);
 
-  return { ...state, reload };
+  // Loads again but keeps showing the current data, for changes the user just made on the same screen.
+  const refresh = useCallback(() => setAttempt((count) => count + 1), []);
+
+  return { ...state, reload, refresh };
 }

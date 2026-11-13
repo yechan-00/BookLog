@@ -7,7 +7,7 @@ export const bookStatusLabel: Record<BookStatus, string> = {
   wishlist: '읽고 싶음',
   reading: '읽는 중',
   completed: '완독',
-  paused: '잠시 멈춤',
+  paused: '임시 중단',
 };
 
 export function fallbackCoverColor(title: string): string {

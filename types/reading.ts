@@ -31,6 +31,9 @@ export interface BookIndex {
   page: number;
   title: string;
   quote: string | null;
+  /** One of INDEX_COLOR_OPTIONS, or null when the reader did not pick one. */
+  color: string | null;
+  tags: string[];
   createdAt: string;
 }
 
