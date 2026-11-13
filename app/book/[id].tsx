@@ -11,6 +11,8 @@ import { Screen } from '@/components/common/Screen';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { StarRating } from '@/components/common/StarRating';
 import { IndexFormModal, type DraftIndex } from '@/components/reading/IndexFormModal';
+import { IndexTagChips } from '@/components/reading/IndexTagChips';
+import { INDEX_DOT_SIZE } from '@/constants/bookIndex';
 import { colors } from '@/constants/colors';
 import { card, radius, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
@@ -285,11 +287,15 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
           indexes.map((index) => (
             <View key={index.id} style={styles.panel}>
               <View style={styles.rowBetween}>
-                <Text style={styles.factLabel}>p.{index.page}</Text>
+                <View style={styles.indexHead}>
+                  {index.color ? <View style={[styles.indexDot, { backgroundColor: index.color }]} /> : null}
+                  <Text style={styles.factLabel}>p.{index.page}</Text>
+                </View>
                 <DeleteButton label="인덱스 삭제" onPress={() => handleDeleteIndex(index.id)} />
               </View>
               <Text style={styles.quote}>{index.title}</Text>
               {index.quote ? <Text style={styles.meta}>{index.quote}</Text> : null}
+              <IndexTagChips tags={index.tags} />
             </View>
           ))
         )}
@@ -411,6 +417,16 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text,
     fontWeight: '600',
+  },
+  indexHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  indexDot: {
+    width: INDEX_DOT_SIZE,
+    height: INDEX_DOT_SIZE,
+    borderRadius: INDEX_DOT_SIZE / 2,
   },
   rowBetween: {
     flexDirection: 'row',

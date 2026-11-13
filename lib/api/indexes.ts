@@ -2,12 +2,15 @@ import { toError } from '@/lib/api/errors';
 import { toBookIndex } from '@/lib/api/mappers';
 import { supabase } from '@/lib/supabase';
 import type { BookIndex } from '@/types/reading';
+import { parseIndexColor, validateTags } from '@/utils/bookIndex';
 
 interface AddIndexInput {
   userBookId: string;
   page: number;
   title: string;
   quote: string;
+  color: string | null;
+  tags: string[];
 }
 
 export async function addIndex(input: AddIndexInput): Promise<BookIndex> {
@@ -20,6 +23,11 @@ export async function addIndex(input: AddIndexInput): Promise<BookIndex> {
     throw new Error('페이지는 0 이상의 정수여야 합니다.');
   }
 
+  if (input.color !== null && parseIndexColor(input.color) === null) {
+    throw new Error('선택할 수 없는 색상입니다.');
+  }
+
+  const tags = validateTags(input.tags);
   const quote = input.quote.trim();
   const { data, error } = await supabase
     .from('book_indexes')
@@ -28,6 +36,8 @@ export async function addIndex(input: AddIndexInput): Promise<BookIndex> {
       page: input.page,
       title,
       quote: quote.length > 0 ? quote : null,
+      color: input.color,
+      tags,
     })
     .select('*')
     .single();
