@@ -11,7 +11,9 @@ import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { finishSession } from '@/lib/api/sessions';
+import { cancelGoalReached } from '@/lib/notifications';
 import { clearActiveSession, loadActiveSession } from '@/lib/reading/activeSession';
+import { refreshEngagementReminder } from '@/lib/reading/reminders';
 import type { LibraryBook } from '@/types/book';
 import type { ActiveReadingSession } from '@/types/reading';
 import { readParam } from '@/utils/book';
@@ -123,6 +125,9 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         oneLineReview: review,
       });
       clearActiveSession();
+      // The reading is over, so the goal-reached alert must not fire later. Today's reminder may now be unnecessary.
+      await cancelGoalReached();
+      void refreshEngagementReminder();
       setSummary({
         endPage,
         durationSeconds,
@@ -144,6 +149,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         style: 'destructive',
         onPress: () => {
           clearActiveSession();
+          void cancelGoalReached();
           goToBookDetail(book.userBookId);
         },
       },
@@ -167,8 +173,14 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         </View>
         {isLastPage ? (
           <View style={styles.notice}>
-            <Text style={styles.noticeText}>마지막 페이지까지 읽었어요. 책 상세에서 완독 처리를 할 수 있어요.</Text>
+            <Text style={styles.noticeText}>마지막 페이지까지 읽었어요. 완독 처리를 해 볼까요?</Text>
           </View>
+        ) : null}
+        {isLastPage ? (
+          <PrimaryButton
+            label="완독 처리하기"
+            onPress={() => router.replace({ pathname: '/book/complete', params: { userBookId: book.userBookId } })}
+          />
         ) : null}
         <PrimaryButton label="책 상세로" onPress={() => goToBookDetail(book.userBookId)} />
       </FinishShell>

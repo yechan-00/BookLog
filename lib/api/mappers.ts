@@ -2,6 +2,7 @@ import type { BookStatus, LibraryBook } from '@/types/book';
 import type { Database } from '@/types/database';
 import type { BookIndex, BookReview, ReadingSession } from '@/types/reading';
 import { pickBookColor } from '@/utils/bookColors';
+import { parseIndexColor, parseStoredTags } from '@/utils/bookIndex';
 
 type Tables = Database['public']['Tables'];
 
@@ -81,6 +82,8 @@ export function toBookIndex(row: Tables['book_indexes']['Row']): BookIndex {
     page: row.page,
     title: row.title,
     quote: row.quote,
+    color: parseIndexColor(row.color),
+    tags: parseStoredTags(row.tags),
     createdAt: row.created_at,
   };
 }
