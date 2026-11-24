@@ -1,6 +1,8 @@
 import type { LibraryBook } from '../types/book.ts';
 import {
+  filterEmptyMessage,
   filterLibraryBooks,
+  isStatusFilter,
   libraryProgressPercent,
   libraryStats,
   sortLibraryBooks,
@@ -109,6 +111,25 @@ function runLibraryViewChecks(): void {
   );
 
   assert(filterLibraryBooks(books, 'wishlist', '없는책', 'title').length === 0, 'empty search result');
+
+  // paused books get their own tab and are no longer only reachable through "all"
+  const withPaused = [
+    ...books,
+    book({ userBookId: '6', title: '잠시 멈춘 책', status: 'paused', totalPages: 300, currentPage: 120, lastReadAt: '2026-10-01' }),
+  ];
+  const pausedStats = libraryStats(withPaused);
+  assert(pausedStats.paused === 1 && pausedStats.reading === 3, 'paused is counted separately from reading');
+  const pausedOnly = filterLibraryBooks(withPaused, 'paused', '', 'title');
+  assert(pausedOnly.length === 1 && pausedOnly[0]?.title === '잠시 멈춘 책', 'paused filter keeps only paused books');
+  assert(
+    filterLibraryBooks(withPaused, 'reading', '', 'title').every((item) => item.status === 'reading'),
+    'reading filter does not include paused books',
+  );
+  assert(filterLibraryBooks(withPaused, 'all', '', 'title').length === withPaused.length, 'all still shows everything');
+  assert(filterLibraryBooks(withPaused, 'paused', '없는책', 'title').length === 0, 'paused filter + search');
+  assert(libraryProgressPercent(withPaused[5]!) === 40, 'paused books still show progress');
+  assert(filterEmptyMessage('paused') === '임시 중단한 책이 없어요.', 'paused has its own empty message');
+  assert(isStatusFilter('paused') && isStatusFilter('reading'), 'paused is a status filter like the others');
 }
 
 runLibraryViewChecks();

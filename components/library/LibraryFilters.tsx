@@ -13,6 +13,7 @@ const filters: { key: LibraryFilter; label: string }[] = [
   { key: 'reading', label: '읽는 중' },
   { key: 'completed', label: '완독' },
   { key: 'wishlist', label: '읽고 싶음' },
+  { key: 'paused', label: '임시 중단' },
 ];
 
 export function LibraryFilters({ value, onChange }: LibraryFiltersProps) {

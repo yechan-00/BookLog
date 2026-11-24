@@ -1,7 +1,7 @@
 import type { BookStatus, LibraryBook } from '@/types/book';
 import { clampPercent } from '@/utils/format';
 
-export type LibraryFilter = 'all' | 'reading' | 'completed' | 'wishlist';
+export type LibraryFilter = 'all' | 'reading' | 'completed' | 'wishlist' | 'paused';
 export type LibrarySort = 'added' | 'recent' | 'title' | 'progress';
 export type LibraryViewMode = 'grid' | 'list';
 
@@ -9,6 +9,7 @@ export type LibraryStats = {
   completed: number;
   reading: number;
   wishlist: number;
+  paused: number;
 };
 
 export function libraryStats(books: readonly LibraryBook[]): LibraryStats {
@@ -16,6 +17,7 @@ export function libraryStats(books: readonly LibraryBook[]): LibraryStats {
     completed: books.filter((book) => book.status === 'completed').length,
     reading: books.filter((book) => book.status === 'reading').length,
     wishlist: books.filter((book) => book.status === 'wishlist').length,
+    paused: books.filter((book) => book.status === 'paused').length,
   };
 }
 
@@ -148,11 +150,13 @@ export function filterEmptyMessage(filter: LibraryFilter): string {
       return '완독한 책이 없어요.';
     case 'wishlist':
       return '읽고 싶은 책이 없어요.';
+    case 'paused':
+      return '임시 중단한 책이 없어요.';
     default:
       return '조건에 맞는 책이 없어요.';
   }
 }
 
 export function isStatusFilter(status: BookStatus): status is Exclude<LibraryFilter, 'all'> {
-  return status === 'reading' || status === 'completed' || status === 'wishlist';
+  return status === 'reading' || status === 'completed' || status === 'wishlist' || status === 'paused';
 }
