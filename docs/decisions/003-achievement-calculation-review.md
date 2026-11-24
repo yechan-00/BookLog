@@ -1,7 +1,7 @@
 # 003. 달성률·연속 독서일 계산 위치를 다시 정한다
 
-> 날짜: 2026-11-11 · 작성: 한인웅 · 상태: 제안됨 (팀 검토 중)
-> 관련: [`002-achievement-in-db-function.md`](002-achievement-in-db-function.md) (채택되면 대체), `docs/PRD.md` 4.6·9·10장
+> 날짜: 2026-11-11 · 작성: 한인웅 · 상태: 채택 (2026-11-24)
+> 관련: [`002-achievement-in-db-function.md`](002-achievement-in-db-function.md) (이 결정이 대체함), `docs/PRD.md` 4.6·9·10장
 
 ## Context
 
@@ -10,7 +10,7 @@
 - PRD 4.6의 메모는 "이 계산을 DB 함수로 맞추기 전에는 완료로 두지 않는다"로, 002를 전제로 한다.
 - 관리자 대시보드 달성률(ADMIN-02)은 전체 사용자 집계라 SQL이 필요하고, 원문 데이터를 관리자 웹에 넘기지 않는다(PRD 7장).
 
-## Decision (제안)
+## Decision
 
 1. 앱 화면(홈·기록·인사이트)은 지금의 앱 TS 계산을 그대로 쓴다. DB 함수로 옮기지 않는다.
 2. 관리자 달성률 지표는 `admin_dashboard_metrics` RPC 안에서 같은 규칙(PRD VIEW-02·03: 목표 요일만, 그날 적용 목표 기준, 목표 날 경계는 `[starts_on, ends_on)`)으로 SQL 집계한다.
