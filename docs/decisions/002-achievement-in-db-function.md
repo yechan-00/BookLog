@@ -1,6 +1,6 @@
 # 002. 달성률·연속 독서일을 DB 함수 하나로 계산한다
 
-> 날짜: 2026-11-04 · 작성: 한인웅 · 상태: 제안됨 (팀 검토 중)
+> 날짜: 2026-11-04 · 작성: 한인웅 · 상태: 대체됨 ([`003-achievement-calculation-review.md`](003-achievement-calculation-review.md), 2026-11-24)
 > 관련: [`001-supabase-backend.md`](001-supabase-backend.md), `docs/PRD.md` 6·9·10장
 
 ## Context
