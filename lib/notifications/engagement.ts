@@ -1,6 +1,8 @@
 import * as Notifications from 'expo-notifications';
+import 'expo-sqlite/localStorage/install';
 import { Platform } from 'react-native';
 
+import { collectFired, recordScheduled, type LedgerEntry } from '@/lib/notifications/engagementLedger';
 import { getNotificationPermission } from '@/lib/notifications/permissions';
 import { ensureNotificationRuntime, NOTIFICATION_CHANNEL_ID, notificationFailureReason } from '@/lib/notifications/runtime';
 import {
@@ -40,6 +42,9 @@ export async function syncEngagementReminder(
   }
 
   try {
+    // Reminders that already fired leave the OS queue, so note them before anything is cancelled or rescheduled.
+    await collectFiredEngagement(input.now ?? new Date());
+
     if (!input.goal || !input.goal.enabled) {
       return { status: 'cleared', scheduled: [], cancelledIds: await cancelEngagementReminders() };
     }
@@ -58,6 +63,7 @@ export async function syncEngagementReminder(
       return { status: 'permission_denied', scheduled: [], cancelledIds: [] };
     }
 
+    const goalId = input.goal.goalId;
     const now = input.now ?? new Date();
     const planned = planEngagementReminders({
       daysOfWeek: input.goal.daysOfWeek,
@@ -78,7 +84,7 @@ export async function syncEngagementReminder(
           body: ENGAGEMENT_BODY,
           data: {
             kind: 'engagement',
-            goalId: input.goal.goalId,
+            goalId,
             localDate: item.localDate,
             scheduledFor: item.fireAt.toISOString(),
           },
@@ -90,6 +96,15 @@ export async function syncEngagementReminder(
         },
       });
     }
+
+    recordScheduled(
+      localStorage,
+      planned.map((item) => ({
+        identifier: item.identifier,
+        goalId,
+        scheduledFor: item.fireAt.toISOString(),
+      })),
+    );
 
     return { status: 'synced', scheduled: planned, cancelledIds };
   } catch (error) {
@@ -143,6 +158,20 @@ export async function listUnconfirmedDueEngagementReminders(now: Date = new Date
   });
 }
 
+/**
+ * Moves reminders that fired since the last check into the outbox (NOTI-02).
+ * A reminder whose time has passed and that is no longer queued counts as sent.
+ */
+export async function collectFiredEngagement(now: Date = new Date()): Promise<LedgerEntry[]> {
+  if (Platform.OS === 'web') {
+    return [];
+  }
+
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  const queuedIds = new Set(scheduled.map((item) => item.identifier).filter(isEngagementIdentifier));
+  return collectFired(localStorage, queuedIds, now);
+}
+
 export { engagementLogCandidates, ENGAGEMENT_ID_PREFIX };
 
 async function cancelEngagementReminders(): Promise<string[]> {
@@ -151,6 +180,8 @@ async function cancelEngagementReminders(): Promise<string[]> {
   for (const identifier of identifiers) {
     await Notifications.cancelScheduledNotificationAsync(identifier);
   }
+  // Nothing is scheduled any more. A caller that schedules again records the new plan.
+  recordScheduled(localStorage, []);
   return identifiers;
 }
 
