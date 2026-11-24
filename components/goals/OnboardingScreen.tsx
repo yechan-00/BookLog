@@ -1,4 +1,3 @@
-import { Stack, router } from 'expo-router';
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -8,14 +7,13 @@ import { TextField } from '@/components/common/TextField';
 import { colors } from '@/constants/colors';
 import { card, radius, spacing, typography } from '@/constants/theme';
 import { replaceGoal, setGoalNotificationsEnabled } from '@/lib/api/goals';
-import { useAuth } from '@/lib/auth/AuthProvider';
+import { useGoal } from '@/lib/goals/GoalProvider';
 import {
   describeEngagementSync,
   getNotificationPermission,
   requestNotificationPermission,
   syncEngagementFromStoredGoal,
 } from '@/lib/notifications';
-import { useGoalOnboarding } from '@/lib/onboarding/GoalOnboardingContext';
 import {
   ONBOARDING_INITIAL_DRAFT,
   validateOnboardingGoalDraft,
@@ -32,9 +30,8 @@ const dayOptions = [
   { day: 6, label: '토' },
 ];
 
-export default function OnboardingGoalScreen() {
-  const { status: authStatus, userId } = useAuth();
-  const { markGoalPresent } = useGoalOnboarding();
+export function OnboardingScreen() {
+  const { refresh } = useGoal();
   const [draft, setDraft] = useState<OnboardingGoalDraft>(ONBOARDING_INITIAL_DRAFT);
   const [message, setMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -48,11 +45,6 @@ export default function OnboardingGoalScreen() {
 
   const handleStart = async () => {
     if (savingRef.current || isSaving) {
-      return;
-    }
-
-    if (authStatus !== 'ready' || !userId) {
-      setMessage('로그인이 필요합니다.');
       return;
     }
 
@@ -88,7 +80,7 @@ export default function OnboardingGoalScreen() {
 
       if (saved.notificationsEnabled !== notificationsEnabled) {
         try {
-          saved = await setGoalNotificationsEnabled(notificationsEnabled, saved.id);
+          saved = await setGoalNotificationsEnabled(saved.id, notificationsEnabled);
         } catch {
           permissionNote =
             (permissionNote ? `${permissionNote} ` : '') +
@@ -107,11 +99,10 @@ export default function OnboardingGoalScreen() {
         permissionNote = (permissionNote ? `${permissionNote} ` : '') + describeEngagementSync(sync);
       }
 
-      markGoalPresent();
+      refresh();
       if (permissionNote) {
         setMessage(`목표는 저장했습니다. ${permissionNote}`);
       }
-      router.replace('/');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '목표를 저장하지 못했습니다.');
     } finally {
@@ -121,15 +112,7 @@ export default function OnboardingGoalScreen() {
   };
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          title: '목표 설정',
-          headerBackVisible: false,
-          gestureEnabled: false,
-        }}
-      />
-      <Screen includeBottomInset topInset>
+    <Screen includeBottomInset topInset>
         <Text style={styles.title}>나만의 독서 목표를 설정해 보세요</Text>
         <Text style={styles.subtitle}>매일 조금씩 읽는 습관을 만들어 보세요.</Text>
 
@@ -214,7 +197,6 @@ export default function OnboardingGoalScreen() {
           loading={isSaving}
         />
       </Screen>
-    </>
   );
 }
 

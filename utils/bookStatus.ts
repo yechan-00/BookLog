@@ -1,40 +1,50 @@
 import type { BookStatus } from '@/types/book';
 
+/**
+ * Which status a book can move to from its current one (BOOK-03).
+ * A book being read cannot go straight back to wishlist: pause it (or finish it) first.
+ */
+const NEXT_STATUSES: Record<BookStatus, readonly BookStatus[]> = {
+  wishlist: ['reading'],
+  reading: ['paused', 'completed'],
+  paused: ['reading', 'wishlist', 'completed'],
+  completed: ['wishlist'],
+};
+
+export function nextStatuses(from: BookStatus): readonly BookStatus[] {
+  return NEXT_STATUSES[from];
+}
+
+export function canChangeStatus(from: BookStatus, to: BookStatus): boolean {
+  return NEXT_STATUSES[from].includes(to);
+}
+
 export type StatusChangePlan =
   | { kind: 'update'; next: Exclude<BookStatus, 'completed'> }
   | { kind: 'complete_flow' }
   | { kind: 'forbidden'; message: string };
 
 /**
- * BOOK-03 / READ-05 policy:
- * - wishlist/reading/paused may move among themselves via row update
- * - completed requires complete_book (rating + review)
- * - completed books cannot return to reading/wishlist in MVP
+ * Screen-side view of the BOOK-03 / READ-05 policy above:
+ * - completing goes through the complete-book screen (rating + review), not a row update
+ * - everything else is a plain status update
  */
 export function planBookStatusChange(from: BookStatus, to: BookStatus): StatusChangePlan {
   if (from === to) {
     return { kind: 'forbidden', message: '이미 같은 상태입니다.' };
   }
 
-  if (from === 'completed') {
-    return {
-      kind: 'forbidden',
-      message: '완독한 책은 MVP에서 다시 읽고 싶음·읽는 중으로 바꿀 수 없습니다.',
-    };
+  if (!canChangeStatus(from, to)) {
+    return { kind: 'forbidden', message: '현재 상태에서는 바꿀 수 없는 상태입니다.' };
   }
 
   if (to === 'completed') {
     return { kind: 'complete_flow' };
   }
 
-  if (to === 'wishlist' || to === 'reading' || to === 'paused') {
-    return { kind: 'update', next: to };
-  }
-
-  return { kind: 'forbidden', message: '허용되지 않는 상태 변경입니다.' };
+  return { kind: 'update', next: to };
 }
 
-export function statusChangeOptions(from: BookStatus): BookStatus[] {
-  const candidates: BookStatus[] = ['wishlist', 'reading', 'paused', 'completed'];
-  return candidates.filter((status) => planBookStatusChange(from, status).kind !== 'forbidden');
+export function statusChangeOptions(from: BookStatus): readonly BookStatus[] {
+  return nextStatuses(from);
 }

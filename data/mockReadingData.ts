@@ -105,6 +105,8 @@ export const mockIndexes: BookIndex[] = [
     page: 54,
     title: '속도보다 방향',
     quote: '중요한 것은 속도가 아니라 방향이다.',
+    color: null,
+    tags: [],
     createdAt: atTime(dateKeyOffset(-1), 21, 28),
   },
   {
@@ -114,6 +116,8 @@ export const mockIndexes: BookIndex[] = [
     page: 11,
     title: '오늘은 여기까지',
     quote: null,
+    color: null,
+    tags: [],
     createdAt: atTime(dateKeyOffset(-3), 21, 20),
   },
   {
@@ -123,6 +127,8 @@ export const mockIndexes: BookIndex[] = [
     page: 52,
     title: '책의 중심 문장',
     quote: '혼자 서는 일이 이렇게 조용한 줄 몰랐다.',
+    color: null,
+    tags: [],
     createdAt: atTime(dateKeyOffset(-7), 21, 0),
   },
 ];

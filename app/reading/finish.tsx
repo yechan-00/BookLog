@@ -9,12 +9,11 @@ import { TextField } from '@/components/common/TextField';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
-import { fetchActiveGoal } from '@/lib/api/goals';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { finishSession } from '@/lib/api/sessions';
-import { syncEngagementFromStoredGoal } from '@/lib/notifications';
+import { cancelGoalReached } from '@/lib/notifications';
 import { clearActiveSession, loadActiveSession } from '@/lib/reading/activeSession';
-import { stopGoalReachedAlert } from '@/lib/reading/goalReachedBridge';
+import { refreshEngagementReminder } from '@/lib/reading/reminders';
 import type { LibraryBook } from '@/types/book';
 import type { ActiveReadingSession } from '@/types/reading';
 import { readParam } from '@/utils/book';
@@ -23,6 +22,9 @@ import { formatDuration } from '@/utils/format';
 import { pageGoalFinishMessage } from '@/utils/notificationGoals';
 import { loadReadingHistory } from '@/utils/readingSource';
 import { todayGoalProgress, type TodayGoalProgress } from '@/utils/readingSummary';
+
+// Longer sessions are likely a timer left running, so the reader confirms the time before saving.
+const LONG_SESSION_SECONDS = 3 * 60 * 60;
 
 interface SavedSummary {
   endPage: number;
@@ -96,7 +98,17 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
   const [progressBefore, setProgressBefore] = useState<TodayGoalProgress | null>(null);
 
   const startedAt = new Date(session.startedAt);
-  const durationSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
+  const measuredSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
+  const isLongSession = measuredSeconds > LONG_SESSION_SECONDS;
+  const maxMinutes = Math.floor(measuredSeconds / 60);
+  const [minutesText, setMinutesText] = useState(() => String(maxMinutes));
+  const minutes = Number(minutesText);
+  const minutesValid =
+    !isLongSession ||
+    (minutesText.trim() !== '' && Number.isInteger(minutes) && minutes >= 1 && minutes <= maxMinutes);
+  const durationSeconds = isLongSession && minutesValid ? minutes * 60 : measuredSeconds;
+  // The DB derives the duration from the two timestamps, so a corrected time moves the end time.
+  const savedEndedAt = isLongSession ? new Date(startedAt.getTime() + durationSeconds * 1000) : endedAt;
   const endPage = Number(endPageText);
   const endPageValid =
     endPageText.trim() !== '' &&
@@ -105,7 +117,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
     endPage <= book.totalPages;
 
   useEffect(() => {
-    void stopGoalReachedAlert();
+    void cancelGoalReached();
   }, []);
 
   useEffect(() => {
@@ -136,14 +148,16 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
       await finishSession({
         userBookId: book.userBookId,
         startedAt,
-        endedAt,
+        endedAt: savedEndedAt,
         startPage: session.startPage,
         endPage,
         focusExitCount: session.focusExitCount,
         oneLineReview: review,
       });
       clearActiveSession();
-      await stopGoalReachedAlert();
+      // The reading is over, so the goal-reached alert must not fire later. Today's reminder may now be unnecessary.
+      await cancelGoalReached();
+      void refreshEngagementReminder();
 
       const pagesRead = endPage - session.startPage;
       setSummary({
@@ -156,13 +170,6 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
           pagesReadThisSession: pagesRead,
         }),
       });
-
-      try {
-        const goal = await fetchActiveGoal();
-        await syncEngagementFromStoredGoal(goal);
-      } catch {
-        // Session save already succeeded; engagement refresh is best-effort.
-      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '독서 기록을 저장하지 못했습니다.');
     } finally {
@@ -177,8 +184,8 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         text: '기록 없이 종료',
         style: 'destructive',
         onPress: () => {
-          void stopGoalReachedAlert();
           clearActiveSession();
+          void cancelGoalReached();
           goToBookDetail(book.userBookId);
         },
       },
@@ -203,8 +210,14 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         </View>
         {isLastPage ? (
           <View style={styles.notice}>
-            <Text style={styles.noticeText}>마지막 페이지까지 읽었어요. 책 상세에서 완독 처리를 할 수 있어요.</Text>
+            <Text style={styles.noticeText}>마지막 페이지까지 읽었어요. 완독 처리를 해 볼까요?</Text>
           </View>
+        ) : null}
+        {isLastPage ? (
+          <PrimaryButton
+            label="완독 처리하기"
+            onPress={() => router.replace({ pathname: '/book/complete', params: { userBookId: book.userBookId } })}
+          />
         ) : null}
         <PrimaryButton label="책 상세로" onPress={() => goToBookDetail(book.userBookId)} />
       </FinishShell>
@@ -223,6 +236,27 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
           {endPageValid ? endPage - session.startPage : 0}페이지 읽음 · 집중 이탈 {session.focusExitCount}회
         </Text>
       </View>
+
+      {isLongSession ? (
+        <>
+          <View style={styles.notice}>
+            <Text style={styles.longNoticeText}>
+              독서 시간이 {LONG_SESSION_SECONDS / 3600}시간을 넘었어요. 타이머를 켜 둔 채 자리를 비웠다면 실제로 읽은
+              시간을 입력해 주세요.
+            </Text>
+          </View>
+          <TextField
+            label="독서 시간 (분)"
+            value={minutesText}
+            onChangeText={setMinutesText}
+            keyboardType="number-pad"
+            editable={!isSaving}
+          />
+          {!minutesValid ? (
+            <Text style={styles.error}>1부터 {maxMinutes} 사이의 분을 입력해 주세요.</Text>
+          ) : null}
+        </>
+      ) : null}
 
       <TextField
         label="끝 페이지"
@@ -251,7 +285,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
       <PrimaryButton
         label={isSaving ? '저장 중…' : '저장'}
         onPress={handleSave}
-        disabled={!endPageValid || isSaving}
+        disabled={!endPageValid || !minutesValid || isSaving}
       />
       <PrimaryButton label="기록 없이 종료" variant="secondary" onPress={handleDiscard} disabled={isSaving} />
     </FinishShell>
@@ -292,5 +326,9 @@ const styles = StyleSheet.create({
   noticeText: {
     ...typography.body,
     color: colors.positive,
+  },
+  longNoticeText: {
+    ...typography.body,
+    color: colors.text,
   },
 });

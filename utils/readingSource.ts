@@ -1,13 +1,49 @@
 import { fetchLibraryBooks } from '@/lib/api/books';
-import { fetchGoalHistory, toGoalPeriod } from '@/lib/api/goals';
-import { fetchSessions } from '@/lib/api/sessions';
+import { toError } from '@/lib/api/errors';
+import { fetchReadingActivities } from '@/lib/api/sessions';
+import { supabase } from '@/lib/supabase';
 import type { LibraryBook } from '@/types/book';
-import type { ReadingActivity, ReadingHistory } from '@/utils/readingPeriod';
+import type { GoalPeriod, ReadingHistory } from '@/utils/readingPeriod';
 
 export type LoadStatus<T> =
   | { status: 'unavailable' }
   | { status: 'error'; message: string }
   | { status: 'ready'; value: T };
+
+function isGoalType(value: string): value is GoalPeriod['type'] {
+  return value === 'time' || value === 'pages';
+}
+
+async function fetchGoalPeriods(): Promise<GoalPeriod[]> {
+  const { data, error } = await supabase
+    .from('reading_goals')
+    .select('type, target_value, days_of_week, starts_on, ends_on')
+    .order('starts_on', { ascending: true });
+
+  if (error) {
+    throw toError(error);
+  }
+
+  return data.flatMap((row) => {
+    if (!isGoalType(row.type)) {
+      return [];
+    }
+
+    if (!Array.isArray(row.days_of_week) || row.days_of_week.length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        type: row.type,
+        targetValue: row.target_value,
+        daysOfWeek: row.days_of_week,
+        startsOn: row.starts_on,
+        endsOn: row.ends_on,
+      },
+    ];
+  });
+}
 
 function pickCurrentBook(books: LibraryBook[]): LibraryBook | null {
   const reading = books.filter((book) => book.status === 'reading');
@@ -15,57 +51,17 @@ function pickCurrentBook(books: LibraryBook[]): LibraryBook | null {
     return null;
   }
 
-  return (
-    reading.slice().sort((left, right) => {
-      const leftKey = left.lastReadAt ?? left.startedAt ?? '';
-      const rightKey = right.lastReadAt ?? right.startedAt ?? '';
-      return rightKey.localeCompare(leftKey);
-    })[0] ?? null
-  );
+  return reading.slice().sort((left, right) => {
+    const leftKey = left.lastReadAt ?? left.startedAt ?? '';
+    const rightKey = right.lastReadAt ?? right.startedAt ?? '';
+    return rightKey.localeCompare(leftKey);
+  })[0] ?? null;
 }
 
-function compareActivitiesNewestFirst(left: ReadingActivity, right: ReadingActivity): number {
-  const leftStart = left.startedAt ?? '';
-  const rightStart = right.startedAt ?? '';
-  if (leftStart !== rightStart) {
-    return rightStart.localeCompare(leftStart);
-  }
-  const leftId = left.sessionId ?? '';
-  const rightId = right.sessionId ?? '';
-  return rightId.localeCompare(leftId);
-}
-
-/** Loads goals plus per-book sessions for home/records/insights. */
+/** Loads goals plus all sessions for home/records/insights in two requests. */
 export async function loadReadingHistory(): Promise<ReadingHistory> {
-  const [goalRows, books] = await Promise.all([fetchGoalHistory(), fetchLibraryBooks()]);
-  const sessionGroups = await Promise.all(
-    books.map(async (book) => {
-      const sessions = await fetchSessions(book.userBookId);
-      return sessions.map(
-        (session): ReadingActivity => ({
-          readOn: session.date,
-          durationSeconds: session.duration,
-          pagesRead: session.pagesRead,
-          bookTitle: book.title,
-          sessionId: session.id,
-          userBookId: book.userBookId,
-          author: book.author,
-          coverColor: book.coverColor,
-          coverImageUrl: book.coverImageUrl ?? null,
-          startedAt: session.startTime,
-          endedAt: session.endTime,
-          startPage: session.startPage,
-          endPage: session.endPage,
-          focusExitCount: session.focusExitCount,
-        }),
-      );
-    }),
-  );
-
-  return {
-    goals: goalRows.map(toGoalPeriod),
-    activities: sessionGroups.flat().sort(compareActivitiesNewestFirst),
-  };
+  const [goals, activities] = await Promise.all([fetchGoalPeriods(), fetchReadingActivities()]);
+  return { goals, activities };
 }
 
 /** Ready null means the shelf loaded and no book is currently reading. */

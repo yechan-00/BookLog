@@ -20,6 +20,7 @@ import { ReaderCard } from '@/components/reader/ReaderCard';
 import { readerLayout, readerRadius, readerSpace, readerTheme } from '@/constants/readerTheme';
 import { fetchActiveGoal, replaceGoal, setGoalNotificationsEnabled } from '@/lib/api/goals';
 import { useAuth } from '@/lib/auth/AuthProvider';
+import { useGoal } from '@/lib/goals/GoalProvider';
 import {
   describeEngagementSync,
   getNotificationPermission,
@@ -60,6 +61,7 @@ export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const layout = readerLayout(width);
   const { status: authStatus, userId } = useAuth();
+  const { refresh: refreshGoalProvider } = useGoal();
   const [draft, setDraft] = useState<GoalDraft>(emptyGoalDraft);
   const dirtyRef = useRef(false);
   const [goalLoad, setGoalLoad] = useState<GoalLoadState>({ status: 'loading', goal: null });
@@ -192,6 +194,7 @@ export default function SettingsScreen() {
         notificationsEnabled: savedGoal?.notificationsEnabled ?? true,
       });
       setGoalLoad({ status: 'ready', goal: saved });
+      refreshGoalProvider();
       setDraft(draftFromStoredGoal(saved));
       markDirty(false);
       const sync = await syncEngagementFromStoredGoal(saved);
@@ -216,8 +219,9 @@ export default function SettingsScreen() {
       if (!enabled) {
         let goal = savedGoal;
         if (goal) {
-          goal = await setGoalNotificationsEnabled(false, goal.id);
+          goal = await setGoalNotificationsEnabled(goal.id, false);
           setGoalLoad({ status: 'ready', goal });
+          refreshGoalProvider();
         }
         const result = await syncEngagementFromStoredGoal(
           goal ? { ...goal, notificationsEnabled: false } : null,
@@ -256,8 +260,9 @@ export default function SettingsScreen() {
         setEngagementMessage('저장된 목표가 없어 알림을 켤 수 없습니다. 목표를 먼저 저장해 주세요.');
         return;
       }
-      goal = await setGoalNotificationsEnabled(true, goal.id);
+      goal = await setGoalNotificationsEnabled(goal.id, true);
       setGoalLoad({ status: 'ready', goal });
+      refreshGoalProvider();
       const result = await syncEngagementFromStoredGoal(goal);
       await refreshDeviceState();
       setIsEngagementBusy(false);

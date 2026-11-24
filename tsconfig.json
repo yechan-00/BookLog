@@ -15,6 +15,7 @@
     "expo-env.d.ts"
   ],
   "exclude": [
+    "admin",
     "lib/notifications/schedulePlan.test.ts",
     "utils/readingStats.test.ts",
     "utils/shelf.test.ts",
@@ -27,6 +28,10 @@
     "utils/insightDashboard.test.ts",
     "utils/recordsMonth.test.ts",
     "utils/bookshelfView.test.ts",
-    "utils/shelf.test.ts"
+    "lib/api/goals.test.ts",
+    "lib/api/sessions.test.ts",
+    "lib/api/books.test.ts",
+    "lib/reading/reading.test.ts",
+    "utils/testing"
   ]
 }

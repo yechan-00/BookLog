@@ -5,8 +5,10 @@ import { fetchReview } from '@/lib/api/reviews';
 import { fetchSessions } from '@/lib/api/sessions';
 import { supabase } from '@/lib/supabase';
 import type { BookDetail, BookStatus, LibraryBook, RegisteredBook } from '@/types/book';
-import { planBookStatusChange } from '@/utils/bookStatus';
-import { startOfToday, toDateKey } from '@/utils/date';
+import type { Database } from '@/types/database';
+import { bookStatusLabel } from '@/utils/book';
+import { canChangeStatus } from '@/utils/bookStatus';
+import { toDateKey } from '@/utils/date';
 
 interface RegisterBookInput {
   isbn: string;
@@ -100,74 +102,76 @@ export async function fetchBookDetail(userBookId: string): Promise<BookDetail> {
 }
 
 /**
- * Updates wishlist/reading/paused only. Does not clear sessions or pages.
- * Completing a book must use completeBook (READ-05).
+ * Removes the book from the user's shelf. Its sessions, indexes, review and dust-wipe logs go with it
+ * (cascade); the shared `books` catalog row stays for other users.
  */
-export async function updateUserBookStatus(
-  userBookId: string,
-  nextStatus: Exclude<BookStatus, 'completed'>,
-): Promise<LibraryBook> {
-  const current = await fetchLibraryBook(userBookId);
-  const plan = planBookStatusChange(current.status, nextStatus);
-  if (plan.kind !== 'update') {
-    throw new Error(plan.kind === 'forbidden' ? plan.message : '완독은 완독 처리 화면에서 진행해 주세요.');
+export async function deleteUserBook(userBookId: string): Promise<void> {
+  const { data, error } = await supabase.from('user_books').delete().eq('id', userBookId).select('id');
+
+  if (error) {
+    throw toError(error);
+  }
+
+  if (data.length === 0) {
+    throw new Error('삭제할 책을 찾지 못했습니다.');
+  }
+}
+
+/**
+ * Moves a shelf entry to another status (BOOK-03). Completing goes through `completeBook`, which also
+ * stores the review. Going from completed back to wishlist starts the book over (progress 0), while the
+ * old sessions stay in the history. `from` is checked against the saved row so a stale screen cannot overwrite it.
+ */
+export async function updateBookStatus(userBookId: string, from: BookStatus, to: BookStatus): Promise<void> {
+  if (to === 'completed') {
+    throw new Error('완독은 완독 처리 화면에서만 바꿀 수 있습니다.');
+  }
+
+  if (!canChangeStatus(from, to)) {
+    throw new Error(`'${bookStatusLabel[from]}' 상태에서 '${bookStatusLabel[to]}' 상태로 바꿀 수 없습니다.`);
+  }
+
+  const { data: current, error: readError } = await supabase
+    .from('user_books')
+    .select('status, started_on')
+    .eq('id', userBookId)
+    .maybeSingle();
+
+  if (readError) {
+    throw toError(readError);
+  }
+
+  if (!current) {
+    throw new Error('서재에서 책을 찾지 못했습니다.');
+  }
+
+  if (current.status !== from) {
+    throw new Error('책 상태가 이미 바뀌었어요. 화면을 새로 불러온 뒤 다시 시도해 주세요.');
+  }
+
+  const patch: Database['public']['Tables']['user_books']['Update'] = { status: to };
+  if (to === 'reading' && !current.started_on) {
+    patch.started_on = toDateKey(new Date());
+  }
+
+  if (from === 'completed') {
+    patch.completed_on = null;
+    patch.started_on = null;
+    patch.current_page = 0;
   }
 
   const { data, error } = await supabase
     .from('user_books')
-    .update({ status: plan.next })
+    .update(patch)
     .eq('id', userBookId)
-    .select(LIBRARY_SELECT)
-    .maybeSingle();
+    .eq('status', from)
+    .select('id');
 
   if (error) {
     throw toError(error);
   }
 
-  if (!data) {
-    throw new Error('서재에서 책을 찾지 못했습니다.');
+  if (data.length === 0) {
+    throw new Error('책 상태를 바꾸지 못했습니다.');
   }
-
-  return toLibraryBook(data);
-}
-
-/** READ-05: rating + review + completed status via complete_book RPC. */
-export async function completeBook(input: {
-  userBookId: string;
-  rating: number;
-  content: string;
-  completedOn?: string;
-}): Promise<LibraryBook> {
-  if (!Number.isInteger(input.rating) || input.rating < 1 || input.rating > 5) {
-    throw new Error('별점은 1부터 5까지의 정수여야 합니다.');
-  }
-
-  const content = input.content.trim();
-  if (!content) {
-    throw new Error('총평을 입력해 주세요.');
-  }
-
-  const current = await fetchLibraryBook(input.userBookId);
-  const plan = planBookStatusChange(current.status, 'completed');
-  if (plan.kind === 'forbidden') {
-    throw new Error(plan.message);
-  }
-
-  const completedOn = input.completedOn ?? toDateKey(startOfToday());
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(completedOn)) {
-    throw new Error('완독일 형식이 올바르지 않습니다.');
-  }
-
-  const { error } = await supabase.rpc('complete_book', {
-    p_user_book_id: input.userBookId,
-    p_rating: input.rating,
-    p_content: content,
-    p_completed_on: completedOn,
-  });
-
-  if (error) {
-    throw toError(error);
-  }
-
-  return fetchLibraryBook(input.userBookId);
 }

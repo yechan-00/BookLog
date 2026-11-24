@@ -38,29 +38,6 @@ function logAuthFailure(stage: AuthStage, error: unknown) {
   console.warn(`[auth] stage=${stage} name=${name} code=${code} status=${status}`);
 }
 
-function isUnreachableHostMessage(message: string): boolean {
-  return (
-    /hostname could not be found/i.test(message) ||
-    /could not resolve host/i.test(message) ||
-    /getaddrinfo/i.test(message) ||
-    /ENOTFOUND/i.test(message) ||
-    /network request failed/i.test(message)
-  );
-}
-
-function authBootstrapFailureMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  if (isUnreachableHostMessage(message)) {
-    return [
-      'Supabase 서버 주소(EXPO_PUBLIC_SUPABASE_URL)를 찾을 수 없습니다.',
-      '대시보드 Project Settings → API의 Project URL이 사용 중인 프로젝트인지 확인한 뒤',
-      '.env.local을 고치고 Expo를 재시작하세요.',
-    ].join(' ');
-  }
-
-  return message || '로그인에 실패했습니다.';
-}
-
 function signInFailureMessage(error: { message: string; code?: string } | null): string {
   const code = error?.code ?? '';
   const message = error?.message ?? '';
@@ -70,10 +47,6 @@ function signInFailureMessage(error: { message: string; code?: string } | null):
 
   if (code === 'email_not_confirmed') {
     return '이메일 인증이 끝나지 않은 계정입니다. Supabase에서 계정을 확인한 뒤 다시 로그인해 주세요.';
-  }
-
-  if (isUnreachableHostMessage(message)) {
-    return authBootstrapFailureMessage(error);
   }
 
   return '로그인에 실패했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.';
@@ -167,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        setErrorMessage(authBootstrapFailureMessage(error));
+        setErrorMessage(error instanceof Error ? error.message : '로그인에 실패했습니다.');
         setStatus('error');
       }
     }

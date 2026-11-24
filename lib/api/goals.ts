@@ -179,34 +179,28 @@ export async function replaceGoal(input: ReplaceGoalInput): Promise<StoredReadin
     typeof input.notificationsEnabled === 'boolean' &&
     input.notificationsEnabled !== saved.notificationsEnabled
   ) {
-    return setGoalNotificationsEnabled(input.notificationsEnabled, saved.id);
+    return setGoalNotificationsEnabled(saved.id, input.notificationsEnabled);
   }
 
   return saved;
 }
 
 /**
- * Updates notifications_enabled on the active goal (or a specific id).
- * Used because replace_goal cannot set this field.
+ * Updates notifications_enabled on the given goal.
+ * Used because replace_goal cannot set this field. Argument order follows main: (goalId, enabled).
  */
 export async function setGoalNotificationsEnabled(
+  goalId: string,
   enabled: boolean,
-  goalId?: string,
 ): Promise<StoredReadingGoal> {
   await requireAuthSession();
 
-  let query = supabase
+  const { data, error } = await supabase
     .from('reading_goals')
     .update({ notifications_enabled: enabled })
-    .select(GOAL_SELECT);
-
-  if (goalId) {
-    query = query.eq('id', goalId);
-  } else {
-    query = query.is('ends_on', null);
-  }
-
-  const { data, error } = await query.maybeSingle();
+    .eq('id', goalId)
+    .select(GOAL_SELECT)
+    .maybeSingle();
   if (error) {
     throw toError(error);
   }

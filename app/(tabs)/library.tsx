@@ -14,7 +14,7 @@ import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
 import { homeTheme } from '@/constants/homeTheme';
 import { useFocusData } from '@/hooks/useFocusData';
-import { updateUserBookStatus } from '@/lib/api/books';
+import { updateBookStatus } from '@/lib/api/books';
 import type { BookStatus } from '@/types/book';
 import {
   filterEmptyMessage,
@@ -51,14 +51,15 @@ export default function LibraryScreen() {
     userBookId: string,
     next: Exclude<BookStatus, 'completed'>,
   ) => {
-    if (statusBusyId) {
+    const current = books.find((book) => book.userBookId === userBookId);
+    if (statusBusyId || !current) {
       return;
     }
 
     const requestId = ++statusRequestRef.current;
     setStatusBusyId(userBookId);
     try {
-      await updateUserBookStatus(userBookId, next);
+      await updateBookStatus(userBookId, current.status, next);
       if (requestId !== statusRequestRef.current) {
         return;
       }

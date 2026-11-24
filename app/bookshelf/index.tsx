@@ -22,7 +22,7 @@ import { readerTheme } from '@/constants/readerTheme';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
 import { fetchDustWipes, saveDustWipe, type DustWipeRecord } from '@/lib/api/dust';
-import { beginReadingSession } from '@/lib/reading/activeSession';
+import { startReading } from '@/lib/reading/startReading';
 import type { LibraryBook } from '@/types/book';
 import { bookshelfDashboard, type DustBookView } from '@/utils/bookshelfView';
 import { startOfToday, toDateKey } from '@/utils/date';
@@ -102,15 +102,9 @@ export default function BookshelfScreen() {
   };
 
   const continueReading = (book: LibraryBook | DustBookView) => {
-    const userBookId = book.userBookId;
     const currentPage = 'currentPage' in book ? book.currentPage : 1;
-    const result = beginReadingSession(userBookId, currentPage);
     setSelectedDust(null);
-    if (result.kind === 'busy' && result.userBookId !== userBookId) {
-      router.push({ pathname: '/reading/session', params: { userBookId: result.userBookId } });
-      return;
-    }
-    router.push({ pathname: '/reading/session', params: { userBookId } });
+    startReading(book.userBookId, currentPage, book.status);
   };
 
   const handleWipe = async () => {

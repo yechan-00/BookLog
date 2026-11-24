@@ -2,7 +2,9 @@ import { toError } from '@/lib/api/errors';
 import { toReadingSession } from '@/lib/api/mappers';
 import { supabase } from '@/lib/supabase';
 import type { ReadingSession } from '@/types/reading';
+import { pickBookColor } from '@/utils/bookColors';
 import { toDateKey } from '@/utils/date';
+import type { ReadingActivity } from '@/utils/readingPeriod';
 
 interface FinishSessionInput {
   userBookId: string;
@@ -47,6 +49,42 @@ export async function finishSession(input: FinishSessionInput): Promise<string> 
   return data;
 }
 
+/**
+ * All of the user's sessions with book info in one request (RLS limits rows to the user).
+ * Newest first (id breaks ties), so the server row limit (max_rows) drops the oldest sessions, not recent ones.
+ */
+export async function fetchReadingActivities(): Promise<ReadingActivity[]> {
+  const { data, error } = await supabase
+    .from('reading_sessions')
+    .select(
+      'id, user_book_id, read_on, started_at, ended_at, duration_seconds, start_page, end_page, pages_read, focus_exit_count, user_books(book_id, books(title, author, cover_url))',
+    )
+    .order('started_at', { ascending: false })
+    .order('id', { ascending: false });
+
+  if (error) {
+    throw toError(error);
+  }
+
+  return data.map((row) => ({
+    readOn: row.read_on,
+    durationSeconds: row.duration_seconds,
+    // Generated column, so the generated types mark it nullable.
+    pagesRead: row.pages_read ?? Math.max(row.end_page - row.start_page, 0),
+    bookTitle: row.user_books?.books?.title ?? null,
+    sessionId: row.id,
+    userBookId: row.user_book_id,
+    author: row.user_books?.books?.author ?? null,
+    coverColor: row.user_books ? pickBookColor(row.user_books.book_id) : undefined,
+    coverImageUrl: row.user_books?.books?.cover_url ?? null,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    startPage: row.start_page,
+    endPage: row.end_page,
+    focusExitCount: row.focus_exit_count,
+  }));
+}
+
 export async function fetchSessions(userBookId: string): Promise<ReadingSession[]> {
   const { data, error } = await supabase
     .from('reading_sessions')
@@ -59,4 +97,59 @@ export async function fetchSessions(userBookId: string): Promise<ReadingSession[
   }
 
   return data.map(toReadingSession);
+}
+
+/**
+ * Deletes one saved session and puts the book's current page and last read date back in line
+ * with the sessions that remain. A completed book keeps its pages (completion sets them to the total).
+ * Done in separate calls: a failure after the delete leaves the book's page stale until the next session.
+ */
+export async function deleteSession(sessionId: string, userBookId: string): Promise<void> {
+  const { data: deleted, error: deleteError } = await supabase
+    .from('reading_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .select('id');
+
+  if (deleteError) {
+    throw toError(deleteError);
+  }
+
+  if (deleted.length === 0) {
+    throw new Error('삭제할 독서 기록을 찾지 못했습니다.');
+  }
+
+  const [remaining, book] = await Promise.all([
+    supabase
+      .from('reading_sessions')
+      .select('read_on, end_page')
+      .eq('user_book_id', userBookId)
+      .order('started_at', { ascending: false }),
+    supabase.from('user_books').select('status').eq('id', userBookId).single(),
+  ]);
+
+  if (remaining.error) {
+    throw toError(remaining.error);
+  }
+
+  if (book.error) {
+    throw toError(book.error);
+  }
+
+  if (book.data.status === 'completed') {
+    return;
+  }
+
+  const lastReadOn = remaining.data.reduce<string | null>(
+    (latest, row) => (latest === null || row.read_on > latest ? row.read_on : latest),
+    null,
+  );
+  const { error: updateError } = await supabase
+    .from('user_books')
+    .update({ current_page: remaining.data[0]?.end_page ?? 0, last_read_on: lastReadOn })
+    .eq('id', userBookId);
+
+  if (updateError) {
+    throw toError(updateError);
+  }
 }
