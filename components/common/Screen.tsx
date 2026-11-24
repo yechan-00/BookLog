@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
@@ -10,7 +16,7 @@ type ScreenProps = {
   scroll?: boolean;
   topInset?: boolean;
   includeBottomInset?: boolean;
-  contentContainerStyle?: ViewStyle;
+  contentContainerStyle?: StyleProp<ViewStyle>;
   /** Optional screen background. Defaults to the global app background. */
   backgroundColor?: string;
 };

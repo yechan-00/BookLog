@@ -17,7 +17,7 @@ export interface SessionListItem {
   bookTitle: string;
   dateKey: string;
   durationSeconds: number;
-  pagesRead: number;
+  pagesRead: number | null;
   startPage: number;
   endPage: number | null;
   oneLineReview: string | null;
@@ -75,6 +75,9 @@ function joinLibraryBook(bookId: string): LibraryBook | null {
     startedAt: userBook.startedAt,
     completedAt: userBook.completedAt,
     lastReadAt: userBook.lastReadAt,
+    createdAt: userBook.startedAt
+      ? `${userBook.startedAt}T00:00:00.000Z`
+      : '2026-01-01T00:00:00.000Z',
   };
 }
 
@@ -141,7 +144,7 @@ export function calculateStreak(dates: Iterable<string>): number {
 export function getHomeSnapshot(): HomeSnapshot {
   const todayKey = toDateKey(startOfToday());
   const todaySessions = mockSessions.filter((session) => session.date === todayKey);
-  const todayPages = todaySessions.reduce((sum, session) => sum + session.pagesRead, 0);
+  const todayPages = todaySessions.reduce((sum, session) => sum + (session.pagesRead ?? 0), 0);
   const todayDurationSeconds = todaySessions.reduce((sum, session) => sum + session.duration, 0);
   const goalTarget = mockGoal.targetValue;
   const recentSessions = [...mockSessions]
@@ -173,7 +176,7 @@ export function getInsightSnapshot(): InsightSnapshot {
 
   return {
     weekDurationSeconds: weekSessions.reduce((sum, session) => sum + session.duration, 0),
-    weekPages: weekSessions.reduce((sum, session) => sum + session.pagesRead, 0),
+    weekPages: weekSessions.reduce((sum, session) => sum + (session.pagesRead ?? 0), 0),
     goalRate,
     streakDays: calculateStreak(getReadingDates()),
     monthlyCompletedCount: mockUserBooks.filter(

@@ -6,6 +6,17 @@ export interface ReadingActivity {
   durationSeconds: number;
   pagesRead: number | null;
   bookTitle: string | null;
+  /** Present when loaded from reading_sessions; optional for summary-only fixtures. */
+  sessionId?: string;
+  userBookId?: string;
+  author?: string | null;
+  coverColor?: string;
+  coverImageUrl?: string | null;
+  startedAt?: string;
+  endedAt?: string | null;
+  startPage?: number;
+  endPage?: number | null;
+  focusExitCount?: number;
 }
 
 /**

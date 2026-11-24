@@ -9,6 +9,8 @@ type CircularProgressProps = {
   strokeWidth?: number;
   color?: string;
   trackColor?: string;
+  /** Inner fill; match the card/surface behind the ring. */
+  holeColor?: string;
   children?: ReactNode;
 };
 
@@ -22,6 +24,7 @@ export function CircularProgress({
   strokeWidth = 10,
   color = homeTheme.progress,
   trackColor = homeTheme.progressTrack,
+  holeColor = homeTheme.surface,
   children,
 }: CircularProgressProps) {
   const clamped = Math.min(100, Math.max(0, Math.round(percent)));
@@ -98,7 +101,7 @@ export function CircularProgress({
             borderRadius: inner / 2,
             top: strokeWidth,
             left: strokeWidth,
-            backgroundColor: homeTheme.surface,
+            backgroundColor: holeColor,
           },
         ]}
       >

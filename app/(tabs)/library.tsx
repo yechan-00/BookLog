@@ -1,288 +1,174 @@
-import { router } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router, type Href } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 
-import { BookCard } from '@/components/books/BookCard';
-import { BookshelfDevPreviewEntry } from '@/components/books/BookshelfDevPreview';
-import { CoverBookshelf } from '@/components/books/CoverBookshelf';
-import { DustCard } from '@/components/books/DustCard';
-import { EmptyBookshelf } from '@/components/books/EmptyBookshelf';
-import { EmptyState } from '@/components/common/EmptyState';
+import { LibraryBookGrid } from '@/components/library/LibraryBookGrid';
+import { LibraryEmptyState } from '@/components/library/LibraryEmptyState';
+import { LibraryFilters } from '@/components/library/LibraryFilters';
+import { LibraryHeader } from '@/components/library/LibraryHeader';
+import { LibraryListItem } from '@/components/library/LibraryListItem';
+import { LibrarySearchField } from '@/components/library/LibrarySearchField';
+import { LibraryStats } from '@/components/library/LibraryStats';
+import { LibraryToolbar } from '@/components/library/LibraryToolbar';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
-import { SectionHeader } from '@/components/common/SectionHeader';
-import { libraryTheme } from '@/constants/libraryTheme';
-import { radius, spacing, typography } from '@/constants/theme';
+import { homeTheme } from '@/constants/homeTheme';
 import { useFocusData } from '@/hooks/useFocusData';
-import type { LibraryBook } from '@/types/book';
-import { startOfToday, toDateKey } from '@/utils/date';
+import { updateUserBookStatus } from '@/lib/api/books';
+import type { BookStatus } from '@/types/book';
+import {
+  filterEmptyMessage,
+  filterLibraryBooks,
+  libraryStats,
+  type LibraryFilter,
+  type LibrarySort,
+  type LibraryViewMode,
+} from '@/utils/libraryView';
 import { loadLibraryBooks } from '@/utils/readingSource';
 
-type LibraryFilter = 'all' | 'wishlist' | 'reading' | 'completed';
-
-const filters: { key: LibraryFilter; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'wishlist', label: '읽고 싶음' },
-  { key: 'reading', label: '읽는 중' },
-  { key: 'completed', label: '완독' },
-];
-
 export default function LibraryScreen() {
-  const today = toDateKey(startOfToday());
   const [filter, setFilter] = useState<LibraryFilter>('all');
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState<LibrarySort>('added');
+  const [viewMode, setViewMode] = useState<LibraryViewMode>('grid');
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
+  const statusRequestRef = useRef(0);
   const loadBooks = useCallback(() => loadLibraryBooks(), []);
   const source = useFocusData(loadBooks);
   const books = source.status === 'ready' ? source.data : [];
-  const trimmedQuery = query.trim().toLocaleLowerCase('ko-KR');
-  const searchedBooks =
-    source.status !== 'ready' || trimmedQuery.length === 0
-      ? books
-      : books.filter((book) => {
-          const title = book.title.toLocaleLowerCase('ko-KR');
-          const author = book.author.toLocaleLowerCase('ko-KR');
-          return title.includes(trimmedQuery) || author.includes(trimmedQuery);
-        });
-  const visibleBooks = filter === 'all' ? searchedBooks : searchedBooks.filter((book) => book.status === filter);
-  const readingBooks = books.filter((book) => book.status === 'reading');
+  const stats = libraryStats(books);
+  const visibleBooks =
+    source.status === 'ready' ? filterLibraryBooks(books, filter, query, sort) : [];
+
   const openSearch = () => router.push('/book/search');
-  const canSearch = source.status === 'ready';
+  const openBookshelf = () => router.push('/bookshelf' as Href);
   const openBook = (userBookId: string) => router.push(`/book/${userBookId}`);
+  const openComplete = (userBookId: string) =>
+    router.push({ pathname: '/book/complete', params: { userBookId } });
+  const canSearch = source.status === 'ready';
+
+  const handleChangeStatus = async (
+    userBookId: string,
+    next: Exclude<BookStatus, 'completed'>,
+  ) => {
+    if (statusBusyId) {
+      return;
+    }
+
+    const requestId = ++statusRequestRef.current;
+    setStatusBusyId(userBookId);
+    try {
+      await updateUserBookStatus(userBookId, next);
+      if (requestId !== statusRequestRef.current) {
+        return;
+      }
+      source.reload();
+    } catch (error) {
+      if (requestId !== statusRequestRef.current) {
+        return;
+      }
+      Alert.alert(
+        '상태를 바꾸지 못했어요',
+        error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+      );
+    } finally {
+      if (requestId === statusRequestRef.current) {
+        setStatusBusyId(null);
+      }
+    }
+  };
 
   return (
-    <Screen topInset backgroundColor={libraryTheme.background}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.title}>나의 서재</Text>
-            <Text style={styles.subtitle}>읽고 싶은 책부터 완독한 책까지</Text>
-            {source.status === 'ready' ? (
-              <Text style={styles.count}>등록된 책 {books.length}권</Text>
-            ) : null}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="책 추가"
-            onPress={openSearch}
-            style={styles.addButton}
-          >
-            <Text style={styles.addLabel}>책 추가</Text>
-          </Pressable>
-        </View>
-        <BookshelfDevPreviewEntry />
-      </View>
+    <Screen topInset backgroundColor={homeTheme.background} contentContainerStyle={styles.content}>
+      <LibraryHeader onAdd={openSearch} onOpenBookshelf={openBookshelf} />
 
-      <View style={styles.searchBlock}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          editable={canSearch}
-          placeholder={canSearch ? '제목 또는 저자 검색' : '서재를 불러온 뒤 검색할 수 있어요'}
-          placeholderTextColor={libraryTheme.textSecondary}
-          style={[styles.searchInput, !canSearch && styles.searchInputDisabled]}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
-        {!canSearch ? (
-          <Text style={styles.searchNote}>서재 데이터가 없어 검색을 열지 않습니다.</Text>
-        ) : null}
-      </View>
+      {source.status === 'ready' ? (
+        <LibraryStats stats={stats} activeFilter={filter} onSelect={setFilter} />
+      ) : null}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-        {filters.map((item) => {
-          const selected = item.key === filter;
-          return (
-            <Pressable
-              key={item.key}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
-              onPress={() => setFilter(item.key)}
-              style={[styles.chip, selected && styles.chipSelected]}
-            >
-              <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{item.label}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <LibrarySearchField value={query} onChangeText={setQuery} editable={canSearch} />
 
-      <SectionHeader title="책꽂이" />
+      <LibraryFilters value={filter} onChange={setFilter} />
+
+      {source.status === 'ready' && books.length > 0 ? (
+        <LibraryToolbar sort={sort} viewMode={viewMode} onChangeSort={setSort} onChangeView={setViewMode} />
+      ) : null}
+
       {source.status === 'loading' ? (
-        <View style={styles.loadingBlock}>
-          <ActivityIndicator color={libraryTheme.primaryBrown} />
-          <Text style={styles.searchNote}>서재를 불러오는 중이에요.</Text>
+        <View style={styles.loading}>
+          <ActivityIndicator color={homeTheme.primary} />
+          <Text style={styles.loadingText}>서재를 불러오는 중이에요.</Text>
         </View>
       ) : source.status === 'error' ? (
-        <View style={styles.emptyActions}>
-          <EmptyState title="서재를 확인하지 못했습니다" description={source.message} />
-          <PrimaryButton label="다시 시도" onPress={source.reload} />
+        <View style={styles.errorBlock}>
+          <LibraryEmptyState title="서재를 불러오지 못했어요." description={source.message} />
+          <PrimaryButton
+            label="다시 시도"
+            onPress={source.reload}
+            primaryColor={homeTheme.primary}
+            primaryPressedColor={homeTheme.accentLine}
+            onPrimaryColor={homeTheme.onPrimary}
+          />
         </View>
       ) : books.length === 0 ? (
-        <EmptyBookshelf
-          title="아직 서재가 비어 있어요."
-          description="첫 번째 책을 꽂아 나만의 서재를 만들어 보세요."
-          actionLabel="책 등록하기"
-          onAdd={openSearch}
+        <LibraryEmptyState
+          title="아직 서재에 책이 없어요."
+          description="첫 번째 책을 추가해 보세요."
+          actionLabel="책 추가"
+          onAction={openSearch}
         />
       ) : visibleBooks.length === 0 ? (
-        <EmptyState title="조건에 맞는 책이 없어요" description="검색어나 필터를 바꿔 보세요." />
-      ) : (
-        <CoverBookshelf
-          books={visibleBooks.map((book) => ({
-            id: book.userBookId,
-            bookId: book.userBookId,
-            title: book.title,
-            author: book.author,
-            color: book.coverColor || book.spineColor,
-            imageUrl: book.coverImageUrl,
-            totalPages: book.totalPages,
-          }))}
+        <LibraryEmptyState
+          title={query.trim() ? '검색 결과가 없어요.' : filterEmptyMessage(filter)}
+          description={
+            query.trim() ? '다른 제목이나 저자로 검색해 보세요.' : '필터를 바꾸거나 책을 추가해 보세요.'
+          }
+        />
+      ) : viewMode === 'grid' ? (
+        <LibraryBookGrid
+          books={visibleBooks}
           onPressBook={openBook}
+          onChangeStatus={handleChangeStatus}
+          onComplete={openComplete}
+          statusBusyId={statusBusyId}
         />
-      )}
-
-      <SectionHeader title="목록" />
-      {source.status === 'loading' ? (
-        <View style={styles.loadingBlock}>
-          <ActivityIndicator color={libraryTheme.primaryBrown} />
-        </View>
-      ) : source.status === 'error' ? (
-        <View style={styles.emptyActions}>
-          <EmptyState title="서재를 확인하지 못했습니다" description={source.message} />
-          <PrimaryButton label="다시 시도" onPress={source.reload} />
-        </View>
-      ) : books.length === 0 ? (
-        <View style={styles.emptyActions}>
-          <EmptyState title="아직 서재가 비어 있어요." description="첫 번째 책을 꽂아 나만의 서재를 만들어 보세요." />
-          <PrimaryButton label="책 등록하기" onPress={openSearch} />
-        </View>
-      ) : visibleBooks.length === 0 ? (
-        <EmptyState title="이 상태의 책이 없어요" />
       ) : (
-        visibleBooks.map((book) => (
-          <BookCard key={book.userBookId} book={book} onPress={() => openBook(book.userBookId)} />
-        ))
-      )}
-
-      <SectionHeader title="먼지" />
-      {source.status === 'loading' ? (
-        <View style={styles.loadingBlock}>
-          <ActivityIndicator color={libraryTheme.primaryBrown} />
+        <View style={styles.list}>
+          {visibleBooks.map((book) => (
+            <LibraryListItem
+              key={book.userBookId}
+              book={book}
+              onPress={openBook}
+              onChangeStatus={handleChangeStatus}
+              onComplete={openComplete}
+              statusBusy={statusBusyId === book.userBookId}
+            />
+          ))}
         </View>
-      ) : source.status === 'error' ? (
-        <EmptyState title="먼지를 확인하지 못했습니다" description={source.message} />
-      ) : readingBooks.length === 0 ? (
-        <EmptyState title="읽는 중인 책이 없습니다" description="먼지 상태는 읽는 중인 책에만 계산합니다." />
-      ) : (
-        readingBooks.map((book) => <DustRow key={book.userBookId} book={book} today={today} />)
       )}
     </Screen>
   );
 }
 
-function DustRow({ book, today }: { book: LibraryBook; today: string }) {
-  return (
-    <DustCard
-      title={book.title}
-      today={today}
-      lastReadOn={book.lastReadAt}
-      addedOn={null}
-      lastWipedOn={null}
-    />
-  );
-}
-
 const styles = StyleSheet.create({
-  header: {
-    gap: spacing.sm,
+  content: {
+    gap: 16,
+    paddingBottom: 28,
   },
-  titleRow: {
-    flexDirection: 'row',
+  loading: {
+    gap: 10,
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
+    paddingVertical: 12,
   },
-  titleBlock: {
-    flex: 1,
-    gap: 4,
+  loadingText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: homeTheme.textSecondary,
   },
-  title: {
-    ...typography.greeting,
-    color: libraryTheme.text,
+  errorBlock: {
+    gap: 12,
   },
-  subtitle: {
-    ...typography.body,
-    color: libraryTheme.textSecondary,
-  },
-  count: {
-    ...typography.caption,
-    color: libraryTheme.secondaryBrown,
-    fontWeight: '600',
-  },
-  addButton: {
-    minHeight: 44,
-    borderRadius: radius.pill,
-    backgroundColor: libraryTheme.primaryBrown,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addLabel: {
-    ...typography.caption,
-    color: libraryTheme.onPrimary,
-    fontWeight: '700',
-  },
-  searchBlock: {
-    gap: spacing.xs,
-  },
-  searchInput: {
-    minHeight: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: libraryTheme.border,
-    backgroundColor: libraryTheme.surface,
-    paddingHorizontal: 14,
-    color: libraryTheme.text,
-    fontSize: 15,
-  },
-  searchInputDisabled: {
-    opacity: 0.72,
-  },
-  searchNote: {
-    ...typography.caption,
-    color: libraryTheme.textSecondary,
-  },
-  filters: {
-    gap: 8,
-    paddingRight: spacing.sm,
-  },
-  chip: {
-    minHeight: 36,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: libraryTheme.border,
-    backgroundColor: libraryTheme.surface,
-    paddingHorizontal: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    backgroundColor: libraryTheme.primaryBrown,
-    borderColor: libraryTheme.primaryBrown,
-  },
-  chipLabel: {
-    ...typography.caption,
-    color: libraryTheme.primaryBrown,
-    fontWeight: '600',
-  },
-  chipLabelSelected: {
-    color: libraryTheme.onPrimary,
-  },
-  emptyActions: {
-    gap: spacing.sm,
-  },
-  loadingBlock: {
-    gap: spacing.sm,
-    alignItems: 'flex-start',
+  list: {
+    gap: 12,
   },
 });

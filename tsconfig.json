@@ -18,6 +18,15 @@
     "lib/notifications/schedulePlan.test.ts",
     "utils/readingStats.test.ts",
     "utils/shelf.test.ts",
-    "utils/homeWeekStats.test.ts"
+    "utils/homeWeekStats.test.ts",
+    "utils/libraryView.test.ts",
+    "utils/goalForm.test.ts",
+    "utils/notificationGoals.test.ts",
+    "utils/onboardingGoal.test.ts",
+    "utils/bookStatus.test.ts",
+    "utils/insightDashboard.test.ts",
+    "utils/recordsMonth.test.ts",
+    "utils/bookshelfView.test.ts",
+    "utils/shelf.test.ts"
   ]
 }

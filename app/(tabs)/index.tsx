@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { CurrentReadingCard } from '@/components/home/CurrentReadingCard';
+import { BookshelfPreviewCard } from '@/components/home/BookshelfPreviewCard';
 import { HomeHeader } from '@/components/home/HomeHeader';
 import { HomeSourceState } from '@/components/home/HomeSourceState';
 import { StreakCard } from '@/components/home/StreakCard';
@@ -11,10 +12,12 @@ import { WeekStatusCard } from '@/components/home/WeekStatusCard';
 import { Screen } from '@/components/common/Screen';
 import { homeTheme } from '@/constants/homeTheme';
 import { useFocusData } from '@/hooks/useFocusData';
+import type { ShelfBook } from '@/components/books/Bookshelf';
 import { startOfToday, toDateKey } from '@/utils/date';
 import { homeWeekStats } from '@/utils/homeWeekStats';
 import { homeReadingSummary } from '@/utils/readingSummary';
-import { loadCurrentBook, loadReadingHistory } from '@/utils/readingSource';
+import { loadCurrentBook, loadLibraryBooks, loadReadingHistory } from '@/utils/readingSource';
+import { bookshelfDashboard } from '@/utils/bookshelfView';
 
 export default function HomeScreen() {
   const { width } = useWindowDimensions();
@@ -23,12 +26,27 @@ export default function HomeScreen() {
   const todayKey = toDateKey(today);
   const loadHistory = useCallback(() => loadReadingHistory(), []);
   const loadBook = useCallback(() => loadCurrentBook(), []);
+  const loadShelf = useCallback(() => loadLibraryBooks(), []);
   const historySource = useFocusData(loadHistory);
   const bookSource = useFocusData(loadBook);
+  const shelfSource = useFocusData(loadShelf);
   const summary = historySource.status === 'ready' ? homeReadingSummary(todayKey, historySource.data) : null;
   const weekStats =
     historySource.status === 'ready' ? homeWeekStats(todayKey, historySource.data.activities) : null;
   const book = bookSource.status === 'ready' ? bookSource.data : null;
+  const shelfDashboard =
+    shelfSource.status === 'ready' ? bookshelfDashboard(shelfSource.data, todayKey, []) : null;
+  const previewBooks: ShelfBook[] = useMemo(
+    () =>
+      (shelfDashboard?.completedSpines ?? []).map((spine) => ({
+        id: spine.userBookId,
+        userBookId: spine.userBookId,
+        title: spine.title,
+        color: spine.spineColor,
+        width: spine.displayWidth,
+      })),
+    [shelfDashboard],
+  );
 
   return (
     <Screen topInset backgroundColor={homeTheme.background} contentContainerStyle={styles.content}>
@@ -85,6 +103,14 @@ export default function HomeScreen() {
       ) : historySource.status === 'error' ? null : weekStats ? (
         <WeekStatusCard weekStats={weekStats} />
       ) : null}
+
+      <BookshelfPreviewCard
+        books={previewBooks}
+        completedCount={shelfDashboard?.completedCount ?? 0}
+        dustyCount={shelfDashboard?.dustyCount ?? 0}
+        loading={shelfSource.status === 'loading'}
+        errorMessage={shelfSource.status === 'error' ? shelfSource.message : null}
+      />
     </Screen>
   );
 }

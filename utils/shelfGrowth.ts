@@ -15,13 +15,15 @@ export interface SpineWidthBand {
 }
 
 /**
- * Display widths only. The page bands are not a confirmed product rule.
- * Replace this table when the shelf thickness policy is decided.
+ * Display widths only. Temporary MVP bands until product locks thickness rules.
+ * Clamped roughly to 22–52dp for mobile shelves.
  */
 export const TEMP_SPINE_WIDTH_BANDS: readonly SpineWidthBand[] = [
-  { maxPages: 200, width: 28 },
+  { maxPages: 150, width: 22 },
+  { maxPages: 250, width: 28 },
   { maxPages: 400, width: 36 },
-  { maxPages: 10000, width: 48 },
+  { maxPages: 600, width: 44 },
+  { maxPages: 10000, width: 52 },
 ];
 
 export interface ShelfSpine {

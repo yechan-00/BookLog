@@ -21,11 +21,12 @@ export interface LibraryRow {
   started_on: string | null;
   completed_on: string | null;
   last_read_on: string | null;
+  created_at: string;
   books: { title: string; author: string; cover_url: string | null } | null;
 }
 
 export const LIBRARY_SELECT =
-  'id, book_id, status, total_pages, current_page, started_on, completed_on, last_read_on, books(title, author, cover_url)';
+  'id, book_id, status, total_pages, current_page, started_on, completed_on, last_read_on, created_at, books(title, author, cover_url)';
 
 export function toLibraryBook(row: LibraryRow): LibraryBook {
   if (!isBookStatus(row.status)) {
@@ -53,6 +54,7 @@ export function toLibraryBook(row: LibraryRow): LibraryBook {
     startedAt: row.started_on,
     completedAt: row.completed_on,
     lastReadAt: row.last_read_on,
+    createdAt: row.created_at,
   };
 }
 
@@ -66,8 +68,8 @@ export function toReadingSession(row: Tables['reading_sessions']['Row']): Readin
     duration: row.duration_seconds,
     startPage: row.start_page,
     endPage: row.end_page,
-    // Generated column, so the generated types mark it nullable.
-    pagesRead: row.pages_read ?? Math.max(row.end_page - row.start_page, 0),
+    // Generated column may be null; never invent a page count from start/end.
+    pagesRead: row.pages_read,
     focusExitCount: row.focus_exit_count,
     oneLineReview: row.one_line_review,
   };

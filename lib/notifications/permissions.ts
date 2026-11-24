@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { IosAuthorizationStatus } from 'expo-notifications';
 import { Linking, Platform } from 'react-native';
 
 import { ensureNotificationRuntime } from '@/lib/notifications/runtime';
@@ -63,15 +64,15 @@ function toResult(settings: Notifications.NotificationPermissionsStatus): Notifi
   const iosStatus = settings.ios?.status;
   const granted =
     settings.granted ||
-    iosStatus === Notifications.IosAuthorizationStatus.AUTHORIZED ||
-    iosStatus === Notifications.IosAuthorizationStatus.PROVISIONAL ||
-    iosStatus === Notifications.IosAuthorizationStatus.EPHEMERAL;
+    iosStatus === IosAuthorizationStatus.AUTHORIZED ||
+    iosStatus === IosAuthorizationStatus.PROVISIONAL ||
+    iosStatus === IosAuthorizationStatus.EPHEMERAL;
 
   if (granted) {
     return { state: 'granted', canAskAgain: settings.canAskAgain };
   }
 
-  if (settings.status === 'denied' || iosStatus === Notifications.IosAuthorizationStatus.DENIED) {
+  if (settings.status === 'denied' || iosStatus === IosAuthorizationStatus.DENIED) {
     return { state: 'denied', canAskAgain: settings.canAskAgain };
   }
 

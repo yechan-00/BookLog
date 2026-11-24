@@ -36,6 +36,22 @@ export function formatKoreanDateKey(dateKey: string): string {
   return `${date.getMonth() + 1}월 ${date.getDate()}일`;
 }
 
+/** Local clock from an ISO timestamp; empty when invalid. */
+export function formatLocalClock(iso: string | null | undefined): string {
+  if (!iso) {
+    return '';
+  }
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const period = hours < 12 ? '오전' : '오후';
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${period} ${displayHour}:${minutes}`;
+}
+
 export function formatMonthTitle(date: Date): string {
   return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
 }

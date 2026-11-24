@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/books/BookCover';
@@ -13,10 +13,11 @@ import { StarRating } from '@/components/common/StarRating';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
-import { fetchBookDetail } from '@/lib/api/books';
+import { fetchBookDetail, updateUserBookStatus } from '@/lib/api/books';
 import { beginReadingSession } from '@/lib/reading/activeSession';
-import type { BookDetail } from '@/types/book';
-import { readParam } from '@/utils/book';
+import type { BookDetail, BookStatus } from '@/types/book';
+import { bookStatusLabel, readParam } from '@/utils/book';
+import { planBookStatusChange, statusChangeOptions } from '@/utils/bookStatus';
 import { clampPercent, formatDuration, formatKoreanDateKey } from '@/utils/format';
 
 export default function BookDetailScreen() {
@@ -47,7 +48,7 @@ export default function BookDetailScreen() {
     );
   }
 
-  return <BookDetailContent detail={state.data} />;
+  return <BookDetailContent detail={state.data} onReload={state.reload} />;
 }
 
 function startReading(userBookId: string, currentPage: number) {
@@ -68,13 +69,81 @@ function startReading(userBookId: string, currentPage: number) {
   router.push({ pathname: '/reading/session', params: { userBookId } });
 }
 
-function BookDetailContent({ detail }: { detail: BookDetail }) {
+function BookDetailContent({
+  detail,
+  onReload,
+}: {
+  detail: BookDetail;
+  onReload: () => void;
+}) {
   const { book, sessions, indexes, review, totalDurationSeconds } = detail;
   // A shelved book starts as 'wishlist' and becomes 'reading' when its first session is saved.
   const canRead = book.status !== 'completed';
+  const [statusBusy, setStatusBusy] = useState(false);
+  const statusRequestRef = useRef(0);
   const oneLineReviews = sessions
     .map((session) => ({ id: session.id, text: session.oneLineReview }))
     .filter((item): item is { id: string; text: string } => Boolean(item.text));
+
+  const openStatusPicker = () => {
+    if (statusBusy) {
+      return;
+    }
+
+    const buttons = statusChangeOptions(book.status).flatMap((status) => {
+      const plan = planBookStatusChange(book.status, status);
+      if (plan.kind === 'complete_flow') {
+        return [
+          {
+            text: '완독 처리…',
+            onPress: () =>
+              router.push({ pathname: '/book/complete', params: { userBookId: book.userBookId } }),
+          },
+        ];
+      }
+      if (plan.kind !== 'update') {
+        return [];
+      }
+      return [
+        {
+          text: bookStatusLabel[plan.next],
+          onPress: () => {
+            void applyStatus(plan.next);
+          },
+        },
+      ];
+    });
+
+    Alert.alert('독서 상태', undefined, [...buttons, { text: '취소', style: 'cancel' }]);
+  };
+
+  const applyStatus = async (next: Exclude<BookStatus, 'completed'>) => {
+    if (statusBusy) {
+      return;
+    }
+
+    const requestId = ++statusRequestRef.current;
+    setStatusBusy(true);
+    try {
+      await updateUserBookStatus(book.userBookId, next);
+      if (requestId !== statusRequestRef.current) {
+        return;
+      }
+      onReload();
+    } catch (error) {
+      if (requestId !== statusRequestRef.current) {
+        return;
+      }
+      Alert.alert(
+        '상태를 바꾸지 못했어요',
+        error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
+      );
+    } finally {
+      if (requestId === statusRequestRef.current) {
+        setStatusBusy(false);
+      }
+    }
+  };
 
   return (
     <>
@@ -118,7 +187,21 @@ function BookDetailContent({ detail }: { detail: BookDetail }) {
         {canRead ? (
           <View style={styles.actions}>
             <PrimaryButton label="독서 시작" onPress={() => startReading(book.userBookId, book.currentPage)} />
-            {/* TODO(READ-05): 완독하기 버튼은 완독 처리를 실데이터로 연결할 때 다시 추가한다. 지금 화면은 mock 기반이다. */}
+            <PrimaryButton
+              label="상태 변경"
+              variant="secondary"
+              onPress={openStatusPicker}
+              disabled={statusBusy}
+              loading={statusBusy}
+            />
+            <PrimaryButton
+              label="완독하기"
+              variant="secondary"
+              onPress={() =>
+                router.push({ pathname: '/book/complete', params: { userBookId: book.userBookId } })
+              }
+              disabled={statusBusy}
+            />
           </View>
         ) : null}
 

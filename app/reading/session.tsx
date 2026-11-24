@@ -18,6 +18,7 @@ import { useFocusReturn } from '@/hooks/useFocusReturn';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { addIndex } from '@/lib/api/indexes';
 import { loadActiveSession, registerFocusExit } from '@/lib/reading/activeSession';
+import { syncGoalReachedForSession } from '@/lib/reading/goalReachedBridge';
 import type { LibraryBook } from '@/types/book';
 import type { ActiveReadingSession } from '@/types/reading';
 import { readParam } from '@/utils/book';
@@ -110,7 +111,34 @@ function ActiveSession({ book, session, onSessionChange }: ActiveSessionProps) {
 
     onSessionChange(next);
     setReaction(FOCUS_RETURN_MESSAGES[(next.focusExitCount - 1) % FOCUS_RETURN_MESSAGES.length]);
+    const resumedElapsed = Math.max(
+      0,
+      Math.floor((Date.now() - new Date(next.startedAt).getTime()) / 1000),
+    );
+    void syncGoalReachedForSession(resumedElapsed);
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    const startedAtMs = new Date(session.startedAt).getTime();
+    const initialElapsed = Number.isNaN(startedAtMs)
+      ? 0
+      : Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+
+    void (async () => {
+      const result = await syncGoalReachedForSession(initialElapsed);
+      if (cancelled || __DEV__ === false) {
+        return;
+      }
+      if (result.status === 'failed') {
+        console.warn('[goal-reached] schedule failed');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.startedAt, session.userBookId]);
 
   useEffect(() => {
     if (!reaction) {

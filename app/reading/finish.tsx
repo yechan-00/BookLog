@@ -1,5 +1,5 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/common/EmptyState';
@@ -9,19 +9,27 @@ import { TextField } from '@/components/common/TextField';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
+import { fetchActiveGoal } from '@/lib/api/goals';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { finishSession } from '@/lib/api/sessions';
+import { syncEngagementFromStoredGoal } from '@/lib/notifications';
 import { clearActiveSession, loadActiveSession } from '@/lib/reading/activeSession';
+import { stopGoalReachedAlert } from '@/lib/reading/goalReachedBridge';
 import type { LibraryBook } from '@/types/book';
 import type { ActiveReadingSession } from '@/types/reading';
 import { readParam } from '@/utils/book';
+import { startOfToday, toDateKey } from '@/utils/date';
 import { formatDuration } from '@/utils/format';
+import { pageGoalFinishMessage } from '@/utils/notificationGoals';
+import { loadReadingHistory } from '@/utils/readingSource';
+import { todayGoalProgress, type TodayGoalProgress } from '@/utils/readingSummary';
 
 interface SavedSummary {
   endPage: number;
   durationSeconds: number;
   pagesRead: number;
   focusExitCount: number;
+  pageGoalMessage: string | null;
 }
 
 export default function FinishReadingScreen() {
@@ -85,6 +93,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [summary, setSummary] = useState<SavedSummary | null>(null);
+  const [progressBefore, setProgressBefore] = useState<TodayGoalProgress | null>(null);
 
   const startedAt = new Date(session.startedAt);
   const durationSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
@@ -94,6 +103,30 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
     Number.isInteger(endPage) &&
     endPage >= session.startPage &&
     endPage <= book.totalPages;
+
+  useEffect(() => {
+    void stopGoalReachedAlert();
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const history = await loadReadingHistory();
+        if (!active) {
+          return;
+        }
+        setProgressBefore(todayGoalProgress(toDateKey(startOfToday()), history.goals, history.activities));
+      } catch {
+        if (active) {
+          setProgressBefore(null);
+        }
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -110,12 +143,26 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         oneLineReview: review,
       });
       clearActiveSession();
+      await stopGoalReachedAlert();
+
+      const pagesRead = endPage - session.startPage;
       setSummary({
         endPage,
         durationSeconds,
-        pagesRead: endPage - session.startPage,
+        pagesRead,
         focusExitCount: session.focusExitCount,
+        pageGoalMessage: pageGoalFinishMessage({
+          progressBefore,
+          pagesReadThisSession: pagesRead,
+        }),
       });
+
+      try {
+        const goal = await fetchActiveGoal();
+        await syncEngagementFromStoredGoal(goal);
+      } catch {
+        // Session save already succeeded; engagement refresh is best-effort.
+      }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '독서 기록을 저장하지 못했습니다.');
     } finally {
@@ -130,6 +177,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         text: '기록 없이 종료',
         style: 'destructive',
         onPress: () => {
+          void stopGoalReachedAlert();
           clearActiveSession();
           goToBookDetail(book.userBookId);
         },
@@ -151,6 +199,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
           <Text style={styles.pages}>
             {summary.pagesRead}페이지 읽음 · 집중 이탈 {summary.focusExitCount}회
           </Text>
+          {summary.pageGoalMessage ? <Text style={styles.pages}>{summary.pageGoalMessage}</Text> : null}
         </View>
         {isLastPage ? (
           <View style={styles.notice}>

@@ -1,3 +1,4 @@
+export { clearBooklogNotifications } from '@/lib/notifications/clearBooklog';
 export {
   ENGAGEMENT_BODY,
   ENGAGEMENT_TITLE,
@@ -22,6 +23,14 @@ export {
   formatLocalDate,
   planEngagementReminders,
 } from '@/lib/notifications/schedulePlan';
+export {
+  describeEngagementSync,
+  syncEngagementFromStoredGoal,
+} from '@/lib/notifications/syncFromGoal';
+export {
+  scheduleTestNotificationPreview,
+  TEST_PREVIEW_IDENTIFIER,
+} from '@/lib/notifications/testPreview';
 export type {
   DueEngagementReminder,
   EngagementGoalInput,
