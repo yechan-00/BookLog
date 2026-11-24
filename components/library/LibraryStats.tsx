@@ -19,6 +19,7 @@ const chips: {
   { key: 'completed', label: '완독', icon: 'checkmark', valueKey: 'completed' },
   { key: 'reading', label: '읽는 중', icon: 'bookOpen', valueKey: 'reading' },
   { key: 'wishlist', label: '읽고 싶음', icon: 'bookmark', valueKey: 'wishlist' },
+  { key: 'paused', label: '임시 중단', icon: 'clock', valueKey: 'paused' },
 ];
 
 export function LibraryStats({ stats, activeFilter, onSelect }: LibraryStatsProps) {
