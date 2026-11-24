@@ -6,6 +6,7 @@ import { AuthGateScreen } from '@/components/auth/AuthGateScreen';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { OnboardingScreen } from '@/components/goals/OnboardingScreen';
+import { EngagementLogSync } from '@/components/notifications/EngagementLogSync';
 import { ResumeSessionPrompt } from '@/components/reading/ResumeSessionPrompt';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/theme';
@@ -63,6 +64,7 @@ function GoalGate() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
       <ResumeSessionPrompt />
+      <EngagementLogSync />
     </>
   );
 }

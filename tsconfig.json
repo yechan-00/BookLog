@@ -29,6 +29,8 @@
     "utils/recordsMonth.test.ts",
     "utils/bookshelfView.test.ts",
     "lib/api/goals.test.ts",
+    "lib/notifications/engagementLedger.test.ts",
+    "lib/notifications/engagementLog.test.ts",
     "lib/api/sessions.test.ts",
     "lib/api/books.test.ts",
     "lib/reading/reading.test.ts",
