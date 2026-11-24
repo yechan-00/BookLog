@@ -1,5 +1,6 @@
 export interface ReadingSession {
   id: string;
+  /** user_books.id (route param for /book/[id]). Not books.id. */
   bookId: string;
   /** YYYY-MM-DD */
   date: string;
@@ -9,8 +10,8 @@ export interface ReadingSession {
   duration: number;
   startPage: number;
   endPage: number | null;
-  pagesRead: number;
-  /** Reserved for a later focus-leave count. Not collected in this version. */
+  /** Stored pages_read; null when the DB value is missing (do not invent). */
+  pagesRead: number | null;
   focusExitCount: number;
   oneLineReview: string | null;
 }

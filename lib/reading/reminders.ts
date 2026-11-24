@@ -1,34 +1,16 @@
 import { fetchActiveGoal } from '@/lib/api/goals';
-import { syncEngagementReminder } from '@/lib/notifications';
+import { syncEngagementFromStoredGoal } from '@/lib/notifications';
 import type { SyncEngagementReminderResult } from '@/lib/notifications/types';
-import { toDateKey } from '@/utils/date';
-import { describeDay } from '@/utils/readingPeriod';
-import { loadReadingHistory } from '@/utils/readingSource';
 
 /**
- * Rebuilds the engagement reminders from the saved goal and today's sessions (NOTI-02).
+ * Rebuilds the engagement reminders from the saved goal (NOTI-02).
  * Call after a goal is saved or a session is saved. It never throws: a failed reminder
  * must not undo or block the save that triggered it, so the result carries the reason.
+ * The scheduling rules live in the notification module (syncEngagementFromStoredGoal).
  */
 export async function refreshEngagementReminder(): Promise<SyncEngagementReminderResult> {
   try {
-    const [goal, history] = await Promise.all([fetchActiveGoal(), loadReadingHistory()]);
-    const todayKey = toDateKey(new Date());
-    const isTodayAchieved =
-      describeDay(todayKey, todayKey, history.goals, history.activities).achievement === 'achieved';
-
-    return await syncEngagementReminder({
-      goal:
-        goal && goal.reminderTime
-          ? {
-              goalId: goal.id,
-              daysOfWeek: goal.daysOfWeek,
-              reminderTime: goal.reminderTime,
-              enabled: goal.notificationsEnabled,
-            }
-          : null,
-      achievedDates: isTodayAchieved ? [todayKey] : [],
-    });
+    return await syncEngagementFromStoredGoal(await fetchActiveGoal());
   } catch (error) {
     return {
       status: 'failed',

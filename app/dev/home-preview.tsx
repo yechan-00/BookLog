@@ -74,6 +74,7 @@ function sampleBook(scenario: PreviewScenario): LibraryBook {
     startedAt: toDateKey(addDays(startOfToday(), -12)),
     completedAt: null,
     lastReadAt: toDateKey(startOfToday()),
+    createdAt: addDays(startOfToday(), -20).toISOString(),
   };
 }
 

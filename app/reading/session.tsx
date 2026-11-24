@@ -127,6 +127,7 @@ function ActiveSession({ book, session, onSessionChange }: ActiveSessionProps) {
 
     onSessionChange(next);
     setReaction(FOCUS_RETURN_MESSAGES[(next.focusExitCount - 1) % FOCUS_RETURN_MESSAGES.length]);
+    void armGoalReached(next.startedAt);
   });
 
   useEffect(() => {

@@ -15,8 +15,23 @@ const iconMap = {
   search: { ios: 'magnifyingglass', android: 'search' },
   clear: { ios: 'xmark.circle.fill', android: 'cancel' },
   chevronRight: { ios: 'chevron.right', android: 'chevron_right' },
+  chevronDown: { ios: 'chevron.down', android: 'expand_more' },
   person: { ios: 'person.fill', android: 'person' },
   bookOpen: { ios: 'book.fill', android: 'menu_book' },
+  plus: { ios: 'plus', android: 'add' },
+  checkmark: { ios: 'checkmark', android: 'check' },
+  grid: { ios: 'square.grid.2x2.fill', android: 'grid_view' },
+  list: { ios: 'list.bullet', android: 'view_list' },
+  more: { ios: 'ellipsis', android: 'more_vert' },
+  bell: { ios: 'bell.fill', android: 'notifications' },
+  clock: { ios: 'clock', android: 'schedule' },
+  document: { ios: 'doc.text.fill', android: 'description' },
+  chevronLeft: { ios: 'chevron.left', android: 'chevron_left' },
+  crown: { ios: 'trophy.fill', android: 'emoji_events' },
+  play: { ios: 'play.fill', android: 'play_arrow' },
+  trendUp: { ios: 'arrow.up.right', android: 'north_east' },
+  trendDown: { ios: 'arrow.down.right', android: 'south_east' },
+  books: { ios: 'books.vertical.fill', android: 'menu_book' },
 } as const satisfies Record<string, { ios: SFSymbol; android: AndroidSymbol }>;
 
 export type AppIconName = keyof typeof iconMap;

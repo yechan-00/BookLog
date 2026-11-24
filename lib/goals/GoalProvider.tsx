@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { fetchActiveGoal } from '@/lib/api/goals';
-import type { ActiveGoal } from '@/types/goal';
+import type { StoredReadingGoal } from '@/types/goal';
 
 /** `needed` means the user has no goal yet, so onboarding comes before the app (GOAL-01). */
 export type GoalGateStatus = 'loading' | 'needed' | 'ready' | 'error';
 
 interface GoalContextValue {
   status: GoalGateStatus;
-  goal: ActiveGoal | null;
+  goal: StoredReadingGoal | null;
   errorMessage: string | null;
   /** Loads the goal again, e.g. after onboarding saved one or after the user taps retry. */
   refresh: () => void;
@@ -18,7 +18,7 @@ const GoalContext = createContext<GoalContextValue | null>(null);
 
 export function GoalProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<GoalGateStatus>('loading');
-  const [goal, setGoal] = useState<ActiveGoal | null>(null);
+  const [goal, setGoal] = useState<StoredReadingGoal | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 

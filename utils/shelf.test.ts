@@ -8,9 +8,11 @@ function assert(condition: boolean, message: string): asserts condition {
 }
 
 const bands = [
-  { maxPages: 200, width: 28 },
+  { maxPages: 150, width: 22 },
+  { maxPages: 250, width: 28 },
   { maxPages: 400, width: 36 },
-  { maxPages: 10000, width: 48 },
+  { maxPages: 600, width: 44 },
+  { maxPages: 10000, width: 52 },
 ];
 
 function book(overrides: Partial<ShelfBookInput> = {}): ShelfBookInput {
@@ -30,7 +32,7 @@ function runShelfChecks(): void {
   assert(empty.completedCount === 0 && empty.spines.length === 0 && empty.knownPageTotal === null, 'no completed books');
 
   const one = shelfGrowth([book()], bands);
-  assert(one.completedCount === 1 && one.spines[0]?.width === 28 && one.knownPageTotal === 120, 'one completed book');
+  assert(one.completedCount === 1 && one.spines[0]?.width === 22 && one.knownPageTotal === 120, 'one completed book');
 
   const many = shelfGrowth(
     [
@@ -47,7 +49,7 @@ function runShelfChecks(): void {
   assert(missing.spines.every((spine) => spine.width === null), 'missing pages have no thickness');
 
   const thick = spineWidth(5000, bands);
-  assert(thick === 48, 'a larger page count uses the last supplied band');
+  assert(thick === 52, 'a larger page count uses the last supplied band');
 
   const duplicate = shelfGrowth(
     [book({ userBookId: 'same', totalPages: 120 }), book({ userBookId: 'same', totalPages: 400 })],

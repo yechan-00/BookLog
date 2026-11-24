@@ -1,39 +1,22 @@
-import { fetchActiveGoal } from '@/lib/api/goals';
-import { cancelGoalReached, scheduleGoalReached } from '@/lib/notifications';
+import { syncGoalReachedForSession } from '@/lib/reading/goalReachedBridge';
 import type { ScheduleGoalReachedResult } from '@/lib/notifications/types';
-import { toDateKey } from '@/utils/date';
-import { loadReadingHistory } from '@/utils/readingSource';
 
-const SECONDS_PER_MINUTE = 60;
+const MILLISECONDS_PER_SECOND = 1000;
 
 /**
  * Schedules the "goal reached" alert for a running session (READ-03).
- * The remaining time is the goal minus what was already saved today minus this session so far,
- * so resuming after an app kill still lands on the right moment. Only time goals on goal days alert.
- * It never throws: reading must not be blocked by a notification problem.
+ * Resuming after an app kill still lands on the right moment because the elapsed time
+ * comes from the session start. It never throws: reading must not be blocked by a notification problem.
+ * The decision rules live in the notification module (syncGoalReachedForSession).
  */
 export async function armGoalReached(sessionStartedAt: string): Promise<ScheduleGoalReachedResult> {
   try {
-    const now = new Date();
-    const [goal, history] = await Promise.all([fetchActiveGoal(), loadReadingHistory()]);
-
-    if (!goal || !goal.daysOfWeek.includes(now.getDay())) {
-      await cancelGoalReached();
-      return { status: 'skipped', reason: 'not_time_goal' };
-    }
-
-    const todayKey = toDateKey(now);
-    const savedSeconds = history.activities
-      .filter((activity) => activity.readOn === todayKey)
-      .reduce((sum, activity) => sum + activity.durationSeconds, 0);
-    const sessionSeconds = Math.max(0, (now.getTime() - Date.parse(sessionStartedAt)) / 1000);
-
-    return await scheduleGoalReached({
-      goalId: goal.id,
-      goalType: goal.type,
-      targetMinutes: goal.targetValue,
-      elapsedMinutes: (savedSeconds + sessionSeconds) / SECONDS_PER_MINUTE,
-    });
+    const startedAtMs = Date.parse(sessionStartedAt);
+    // A broken start time must not reach the scheduler as NaN.
+    const elapsedSeconds = Number.isNaN(startedAtMs)
+      ? 0
+      : Math.max(0, (Date.now() - startedAtMs) / MILLISECONDS_PER_SECOND);
+    return await syncGoalReachedForSession(elapsedSeconds);
   } catch (error) {
     return {
       status: 'failed',

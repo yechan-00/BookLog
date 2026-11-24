@@ -2,6 +2,7 @@ import { toError } from '@/lib/api/errors';
 import { toReadingSession } from '@/lib/api/mappers';
 import { supabase } from '@/lib/supabase';
 import type { ReadingSession } from '@/types/reading';
+import { pickBookColor } from '@/utils/bookColors';
 import { toDateKey } from '@/utils/date';
 import type { ReadingActivity } from '@/utils/readingPeriod';
 
@@ -49,14 +50,17 @@ export async function finishSession(input: FinishSessionInput): Promise<string> 
 }
 
 /**
- * All of the user's sessions with book titles in one request (RLS limits rows to the user).
- * Newest first, so the server row limit (max_rows) drops the oldest sessions, not recent ones.
+ * All of the user's sessions with book info in one request (RLS limits rows to the user).
+ * Newest first (id breaks ties), so the server row limit (max_rows) drops the oldest sessions, not recent ones.
  */
 export async function fetchReadingActivities(): Promise<ReadingActivity[]> {
   const { data, error } = await supabase
     .from('reading_sessions')
-    .select('read_on, duration_seconds, start_page, end_page, pages_read, user_books(books(title))')
-    .order('started_at', { ascending: false });
+    .select(
+      'id, user_book_id, read_on, started_at, ended_at, duration_seconds, start_page, end_page, pages_read, focus_exit_count, user_books(book_id, books(title, author, cover_url))',
+    )
+    .order('started_at', { ascending: false })
+    .order('id', { ascending: false });
 
   if (error) {
     throw toError(error);
@@ -68,6 +72,16 @@ export async function fetchReadingActivities(): Promise<ReadingActivity[]> {
     // Generated column, so the generated types mark it nullable.
     pagesRead: row.pages_read ?? Math.max(row.end_page - row.start_page, 0),
     bookTitle: row.user_books?.books?.title ?? null,
+    sessionId: row.id,
+    userBookId: row.user_book_id,
+    author: row.user_books?.books?.author ?? null,
+    coverColor: row.user_books ? pickBookColor(row.user_books.book_id) : undefined,
+    coverImageUrl: row.user_books?.books?.cover_url ?? null,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    startPage: row.start_page,
+    endPage: row.end_page,
+    focusExitCount: row.focus_exit_count,
   }));
 }
 

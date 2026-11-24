@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 export const NOTIFICATION_CHANNEL_ID = 'booklog-reminders';
@@ -25,7 +26,7 @@ export async function ensureNotificationRuntime(): Promise<void> {
 
   await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL_ID, {
     name: '독서 알림',
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: AndroidImportance.DEFAULT,
   });
 }
 

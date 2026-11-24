@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { fetchMyProfile } from '@/lib/api/profile';
+import { clearBooklogNotifications } from '@/lib/notifications/clearBooklog';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/types/user';
 
@@ -92,6 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const previousUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const previous = previousUserIdRef.current;
+    previousUserIdRef.current = userId;
+    if (previous && previous !== userId) {
+      void clearBooklogNotifications();
+    }
+  }, [userId]);
 
   useEffect(() => {
     let isCancelled = false;

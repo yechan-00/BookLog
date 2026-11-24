@@ -46,6 +46,8 @@ export interface LibraryBook {
   startedAt: string | null;
   completedAt: string | null;
   lastReadAt: string | null;
+  /** ISO timestamptz from user_books.created_at */
+  createdAt: string;
 }
 
 /** One row of a Kakao book search, before the user adds it to the shelf. */

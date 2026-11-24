@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, View } from 'react-native';
 
 import { BookSpine } from '@/components/books/BookSpine';
@@ -7,22 +7,25 @@ import { spacing } from '@/constants/theme';
 
 export type ShelfBook = {
   id: string;
-  bookId: string;
+  /** user_books.id used for navigation. */
+  userBookId: string;
   title: string;
   color: string;
   width?: number | null;
+  dustLevel?: number;
+  statusLabel?: string;
 };
 
 type BookshelfProps = {
   books: ShelfBook[];
-  onPressBook: (bookId: string) => void;
+  onPressBook: (userBookId: string) => void;
 };
 
 const SHELF_GAP = 8;
 const SHELF_SIDE_PAD = 14;
 const FALLBACK_WIDTH = 320;
 
-function packShelfRows(books: ShelfBook[], availableWidth: number): ShelfBook[][] {
+export function packShelfRows(books: ShelfBook[], availableWidth: number): ShelfBook[][] {
   if (books.length === 0) {
     return [];
   }
@@ -55,7 +58,7 @@ function packShelfRows(books: ShelfBook[], availableWidth: number): ShelfBook[][
 
 export function Bookshelf({ books, onPressBook }: BookshelfProps) {
   const [shelfWidth, setShelfWidth] = useState(FALLBACK_WIDTH);
-  const rows = packShelfRows(books, shelfWidth);
+  const rows = useMemo(() => packShelfRows(books, shelfWidth), [books, shelfWidth]);
 
   const onLayout = (event: LayoutChangeEvent) => {
     const next = Math.round(event.nativeEvent.layout.width);
@@ -77,7 +80,7 @@ export function Bookshelf({ books, onPressBook }: BookshelfProps) {
   );
 }
 
-function ShelfRow({ books, onPressBook }: { books: ShelfBook[]; onPressBook: (bookId: string) => void }) {
+function ShelfRow({ books, onPressBook }: { books: ShelfBook[]; onPressBook: (userBookId: string) => void }) {
   return (
     <View style={styles.shelf}>
       <View style={styles.bay}>
@@ -89,7 +92,9 @@ function ShelfRow({ books, onPressBook }: { books: ShelfBook[]; onPressBook: (bo
               title={book.title}
               color={book.color}
               width={book.width}
-              onPress={() => onPressBook(book.bookId)}
+              dustLevel={book.dustLevel}
+              accessibilityHint={book.statusLabel}
+              onPress={() => onPressBook(book.userBookId)}
             />
           ))}
         </View>
