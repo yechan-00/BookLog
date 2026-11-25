@@ -9,10 +9,15 @@ export {
 } from '@/lib/notifications/engagement';
 export { cancelGoalReached, scheduleGoalReached } from '@/lib/notifications/goalReached';
 export {
+  ensureNotificationPermissionGranted,
   getNotificationPermission,
   openNotificationSettings,
   requestNotificationPermission,
 } from '@/lib/notifications/permissions';
+export {
+  canRequestNotificationPermission,
+  interpretNotificationPermissions,
+} from '@/lib/notifications/permissionStatus';
 export {
   ENGAGEMENT_HORIZON_DAYS,
   ENGAGEMENT_ID_PREFIX,

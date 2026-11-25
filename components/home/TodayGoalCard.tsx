@@ -1,11 +1,10 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useState } from 'react';
+import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { AppIcon } from '@/components/common/AppIcon';
 import { CircularProgress } from '@/components/home/CircularProgress';
 import { HomeCard, HomeCardTitle, homeTwinCardStyle } from '@/components/home/HomeCard';
 import { homeTheme } from '@/constants/homeTheme';
-import { formatDuration } from '@/utils/format';
 import type { TodayGoalProgress } from '@/utils/readingSummary';
 
 type TodayGoalCardProps = {
@@ -16,31 +15,42 @@ function formatMinuteLabel(seconds: number): string {
   return `${Math.max(0, Math.round(seconds / 60))}분`;
 }
 
+function ringSizeForWidth(innerWidth: number): number {
+  if (innerWidth <= 0) {
+    return 104;
+  }
+  const sized = Math.round(innerWidth * 0.72);
+  return Math.min(128, Math.max(96, sized));
+}
+
 export function TodayGoalCard({ goal }: TodayGoalCardProps) {
-  const { width } = useWindowDimensions();
-  const ringSize = width < 390 ? 82 : 92;
+  const [innerWidth, setInnerWidth] = useState(0);
+  const ringSize = ringSizeForWidth(innerWidth);
+  const strokeWidth = ringSize >= 116 ? 11 : 10;
+
+  const onBodyLayout = (event: LayoutChangeEvent) => {
+    const next = Math.round(event.nativeEvent.layout.width);
+    if (next > 0 && next !== innerWidth) {
+      setInnerWidth(next);
+    }
+  };
 
   if (goal.state === 'no_goal') {
     return (
       <HomeCard style={homeTwinCardStyle}>
         <HomeCardTitle title="오늘의 목표" onPress={() => router.push('/settings')} />
-        <View style={styles.body}>
-          <CircularProgress percent={0} size={ringSize} strokeWidth={9} color={homeTheme.progressTrack}>
+        <View style={styles.body} onLayout={onBodyLayout}>
+          <CircularProgress percent={0} size={ringSize} strokeWidth={strokeWidth} color={homeTheme.progressTrack}>
             <Text style={styles.emptyRingLabel}>목표</Text>
             <Text style={styles.emptyRingSub}>없음</Text>
           </CircularProgress>
-          <View style={styles.copyCol}>
-            <Text style={styles.stateTitle} numberOfLines={2}>
-              목표를 설정해 보세요.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push('/settings')}
-              style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.linkLabel}>목표 설정</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push('/settings')}
+            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.linkLabel}>목표 설정</Text>
+          </Pressable>
         </View>
       </HomeCard>
     );
@@ -74,34 +84,35 @@ export function TodayGoalCard({ goal }: TodayGoalCardProps) {
     );
   }
 
-  const achieved = goal.state === 'achieved';
   const isTime = goal.goalType === 'time';
   const readLabel = isTime ? formatMinuteLabel(goal.readSeconds) : `${goal.readPages ?? 0}쪽`;
   const targetLabel = isTime
     ? `/ ${formatMinuteLabel(goal.targetSeconds ?? 0)}`
     : `/ ${goal.targetPages ?? 0}쪽`;
-  const encouragement = achieved ? '오늘 목표를\n채웠어요.' : '오늘도 꾸준히\n읽고 있어요.';
-  const footer = isTime
-    ? `하루 ${formatDuration(goal.targetSeconds ?? 0)}`
-    : `하루 ${goal.targetPages ?? 0}쪽`;
+  const longValue = readLabel.length >= 5 || targetLabel.length >= 7;
+  const readFontSize = longValue ? (ringSize < 104 ? 18 : 20) : ringSize < 104 ? 20 : 22;
+  const targetFontSize = longValue ? 11 : 13;
 
   return (
     <HomeCard style={homeTwinCardStyle}>
       <HomeCardTitle title="오늘의 목표" onPress={() => router.push('/settings')} />
-      <View style={styles.body}>
-        <CircularProgress percent={goal.percent} size={ringSize} strokeWidth={10}>
-          <Text style={styles.readValue}>{readLabel}</Text>
-          <Text style={styles.targetValue}>{targetLabel}</Text>
+      <View style={styles.body} onLayout={onBodyLayout}>
+        <CircularProgress percent={goal.percent} size={ringSize} strokeWidth={strokeWidth}>
+          <Text
+            style={[styles.readValue, { fontSize: readFontSize, lineHeight: readFontSize + 4 }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.15}
+          >
+            {readLabel}
+          </Text>
+          <Text
+            style={[styles.targetValue, { fontSize: targetFontSize, lineHeight: targetFontSize + 3 }]}
+            numberOfLines={1}
+            maxFontSizeMultiplier={1.15}
+          >
+            {targetLabel}
+          </Text>
         </CircularProgress>
-        <View style={styles.copyCol}>
-          <Text style={styles.encouragement}>{encouragement}</Text>
-          <View style={styles.footer}>
-            <AppIcon name="bookOpen" size={13} color={homeTheme.textSecondary} />
-            <Text style={styles.footerText} numberOfLines={1}>
-              {footer}
-            </Text>
-          </View>
-        </View>
       </View>
     </HomeCard>
   );
@@ -109,27 +120,23 @@ export function TodayGoalCard({ goal }: TodayGoalCardProps) {
 
 const styles = StyleSheet.create({
   body: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  copyCol: {
     flex: 1,
-    minWidth: 0,
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
   },
   readValue: {
-    fontSize: 20,
-    lineHeight: 24,
     fontWeight: '700',
     color: homeTheme.text,
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
   targetValue: {
-    fontSize: 12,
-    lineHeight: 15,
+    fontWeight: '500',
     color: homeTheme.textSecondary,
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
   emptyRingLabel: {
     fontSize: 14,
@@ -140,22 +147,6 @@ const styles = StyleSheet.create({
   emptyRingSub: {
     fontSize: 11,
     lineHeight: 14,
-    color: homeTheme.textSecondary,
-  },
-  encouragement: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: homeTheme.textSecondary,
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  footerText: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 15,
     color: homeTheme.textSecondary,
   },
   stateTitle: {

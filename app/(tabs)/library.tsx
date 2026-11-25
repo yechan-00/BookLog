@@ -8,7 +8,6 @@ import { LibraryFilters } from '@/components/library/LibraryFilters';
 import { LibraryHeader } from '@/components/library/LibraryHeader';
 import { LibraryListItem } from '@/components/library/LibraryListItem';
 import { LibrarySearchField } from '@/components/library/LibrarySearchField';
-import { LibraryStats } from '@/components/library/LibraryStats';
 import { LibraryToolbar } from '@/components/library/LibraryToolbar';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
@@ -19,7 +18,6 @@ import type { BookStatus } from '@/types/book';
 import {
   filterEmptyMessage,
   filterLibraryBooks,
-  libraryStats,
   type LibraryFilter,
   type LibrarySort,
   type LibraryViewMode,
@@ -36,7 +34,6 @@ export default function LibraryScreen() {
   const loadBooks = useCallback(() => loadLibraryBooks(), []);
   const source = useFocusData(loadBooks);
   const books = source.status === 'ready' ? source.data : [];
-  const stats = libraryStats(books);
   const visibleBooks =
     source.status === 'ready' ? filterLibraryBooks(books, filter, query, sort) : [];
 
@@ -82,10 +79,6 @@ export default function LibraryScreen() {
   return (
     <Screen topInset backgroundColor={homeTheme.background} contentContainerStyle={styles.content}>
       <LibraryHeader onAdd={openSearch} onOpenBookshelf={openBookshelf} />
-
-      {source.status === 'ready' ? (
-        <LibraryStats stats={stats} activeFilter={filter} onSelect={setFilter} />
-      ) : null}
 
       <LibrarySearchField value={query} onChangeText={setQuery} editable={canSearch} />
 
@@ -153,7 +146,7 @@ export default function LibraryScreen() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 16,
+    gap: 14,
     paddingBottom: 28,
   },
   loading: {
