@@ -60,6 +60,12 @@ export async function syncEngagementReminder(
 
     const permission = await getNotificationPermission();
     if (permission.state !== 'granted') {
+      if (__DEV__) {
+        console.log('[booklog-notifications]', 'engagement-permission-denied', {
+          mapped: permission.state,
+          canAskAgain: permission.canAskAgain,
+        });
+      }
       return { status: 'permission_denied', scheduled: [], cancelledIds: [] };
     }
 
@@ -106,8 +112,19 @@ export async function syncEngagementReminder(
       })),
     );
 
+    if (__DEV__) {
+      console.log('[booklog-notifications]', 'engagement-scheduled', {
+        count: planned.length,
+        cancelled: cancelledIds.length,
+      });
+    }
     return { status: 'synced', scheduled: planned, cancelledIds };
   } catch (error) {
+    if (__DEV__) {
+      console.log('[booklog-notifications]', 'engagement-schedule-failed', {
+        name: error instanceof Error ? error.name : 'unknown',
+      });
+    }
     return {
       status: 'failed',
       scheduled: [],

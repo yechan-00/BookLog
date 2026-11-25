@@ -10,8 +10,7 @@ import { replaceGoal, setGoalNotificationsEnabled } from '@/lib/api/goals';
 import { useGoal } from '@/lib/goals/GoalProvider';
 import {
   describeEngagementSync,
-  getNotificationPermission,
-  requestNotificationPermission,
+  ensureNotificationPermissionGranted,
   syncEngagementFromStoredGoal,
 } from '@/lib/notifications';
 import {
@@ -60,13 +59,12 @@ export function OnboardingScreen() {
     let notificationsEnabled = draft.notificationsEnabled;
     let permissionNote: string | null = null;
     if (notificationsEnabled) {
-      let permission = await getNotificationPermission();
-      if (permission.state === 'undetermined') {
-        permission = await requestNotificationPermission();
-      }
+      const permission = await ensureNotificationPermissionGranted();
       if (permission.state !== 'granted') {
         notificationsEnabled = false;
-        permissionNote = '알림 권한이 없어 알림은 끈 상태로 목표만 저장합니다.';
+        permissionNote = permission.canAskAgain
+          ? '알림 권한이 없어 알림은 끈 상태로 목표만 저장합니다. 설정에서 다시 허용할 수 있어요.'
+          : '알림 권한이 없어 알림은 끈 상태로 목표만 저장합니다. 휴대전화 설정에서 알림을 허용해 주세요.';
       }
     }
 

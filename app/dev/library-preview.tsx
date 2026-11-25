@@ -8,7 +8,6 @@ import { LibraryFilters } from '@/components/library/LibraryFilters';
 import { LibraryHeader } from '@/components/library/LibraryHeader';
 import { LibraryListItem } from '@/components/library/LibraryListItem';
 import { LibrarySearchField } from '@/components/library/LibrarySearchField';
-import { LibraryStats } from '@/components/library/LibraryStats';
 import { LibraryToolbar } from '@/components/library/LibraryToolbar';
 import { Screen } from '@/components/common/Screen';
 import { homeTheme } from '@/constants/homeTheme';
@@ -16,7 +15,6 @@ import type { BookStatus, LibraryBook } from '@/types/book';
 import { addDays, startOfToday, toDateKey } from '@/utils/date';
 import {
   filterLibraryBooks,
-  libraryStats,
   type LibraryFilter,
   type LibrarySort,
   type LibraryViewMode,
@@ -154,7 +152,6 @@ export default function LibraryPreviewScreen() {
   const [viewMode, setViewMode] = useState<LibraryViewMode>('grid');
 
   const books = sampleBooks(countFor(scenario), scenario);
-  const stats = libraryStats(books);
   const visibleBooks = filterLibraryBooks(
     books,
     filter,
@@ -197,7 +194,6 @@ export default function LibraryPreviewScreen() {
         <LibraryEmptyState title="서재를 불러오지 못했어요." description="미리보기용 오류 상태입니다." />
       ) : (
         <>
-          <LibraryStats stats={stats} activeFilter={filter} onSelect={setFilter} />
           <LibrarySearchField value={query} onChangeText={setQuery} />
           <LibraryFilters value={filter} onChange={setFilter} />
           {books.length > 0 ? (

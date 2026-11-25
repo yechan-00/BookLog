@@ -1,6 +1,7 @@
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
+  Alert,
   Pressable,
   StyleSheet,
   Switch,
@@ -23,10 +24,10 @@ import { useAuth } from '@/lib/auth/AuthProvider';
 import { useGoal } from '@/lib/goals/GoalProvider';
 import {
   describeEngagementSync,
+  ensureNotificationPermissionGranted,
   getNotificationPermission,
   listScheduledEngagementReminders,
   openNotificationSettings,
-  requestNotificationPermission,
   syncEngagementFromStoredGoal,
 } from '@/lib/notifications';
 import { scheduleTestNotificationPreview } from '@/lib/notifications/testPreview';
@@ -236,21 +237,30 @@ export default function SettingsScreen() {
         return;
       }
 
-      let next = await getNotificationPermission();
-      if (next.state === 'undetermined') {
-        next = await requestNotificationPermission();
-      }
+      // Android may report denied+canAskAgain before the first prompt; always request when allowed.
+      const next = await ensureNotificationPermissionGranted();
       setPermission(next);
       if (next.state !== 'granted') {
         setIsEngagementBusy(false);
-        setEngagementMessage(
-          next.state === 'denied'
-            ? '알림 권한이 필요합니다. 시스템 설정에서 허용해 주세요.'
-            : '알림 권한을 확인하지 못했습니다.',
-        );
         if (next.state === 'denied') {
-          await openNotificationSettings();
+          const message = next.canAskAgain
+            ? '알림 권한이 필요해요. 허용을 선택하면 독서 알림을 받을 수 있어요.'
+            : '알림 권한이 필요해요. 휴대전화 설정에서 알림을 허용해 주세요.';
+          setEngagementMessage(message);
+          if (!next.canAskAgain) {
+            Alert.alert('알림 권한이 필요해요', '휴대전화 설정에서 BookLog 알림을 허용해 주세요.', [
+              { text: '닫기', style: 'cancel' },
+              {
+                text: '설정 열기',
+                onPress: () => {
+                  void openNotificationSettings();
+                },
+              },
+            ]);
+          }
+          return;
         }
+        setEngagementMessage('알림 권한을 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
 
@@ -260,12 +270,29 @@ export default function SettingsScreen() {
         setEngagementMessage('저장된 목표가 없어 알림을 켤 수 없습니다. 목표를 먼저 저장해 주세요.');
         return;
       }
-      goal = await setGoalNotificationsEnabled(goal.id, true);
+
+      try {
+        goal = await setGoalNotificationsEnabled(goal.id, true);
+      } catch (error) {
+        setIsEngagementBusy(false);
+        setEngagementMessage(
+          error instanceof Error ? error.message : '알림 설정을 저장하지 못했습니다.',
+        );
+        return;
+      }
       setGoalLoad({ status: 'ready', goal });
       refreshGoalProvider();
       const result = await syncEngagementFromStoredGoal(goal);
       await refreshDeviceState();
       setIsEngagementBusy(false);
+      if (result.status === 'failed' || result.status === 'permission_denied') {
+        setEngagementMessage(
+          result.status === 'permission_denied'
+            ? '권한은 허용됐지만 알림을 예약하지 못했습니다. 다시 시도해 주세요.'
+            : (result.reason ?? '알림을 예약하지 못했습니다. 설정 저장은 완료됐어요.'),
+        );
+        return;
+      }
       setEngagementMessage(describeEngagementSync(result));
     } catch (error) {
       setIsEngagementBusy(false);

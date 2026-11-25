@@ -17,6 +17,7 @@
   "exclude": [
     "admin",
     "lib/notifications/schedulePlan.test.ts",
+    "lib/notifications/permissions.test.ts",
     "utils/readingStats.test.ts",
     "utils/shelf.test.ts",
     "utils/homeWeekStats.test.ts",

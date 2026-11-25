@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 export const NOTIFICATION_CHANNEL_ID = 'booklog-reminders';
 
 let isHandlerReady = false;
+let androidChannelReady = false;
 
 /** Prepares local notification presentation. Does not ask for permission. */
 export async function ensureNotificationRuntime(): Promise<void> {
@@ -24,10 +25,21 @@ export async function ensureNotificationRuntime(): Promise<void> {
     return;
   }
 
+  if (androidChannelReady) {
+    return;
+  }
+
+  // Android 13+: at least one channel must exist before the OS shows the permission prompt.
   await Notifications.setNotificationChannelAsync(NOTIFICATION_CHANNEL_ID, {
     name: '독서 알림',
     importance: AndroidImportance.DEFAULT,
   });
+  androidChannelReady = true;
+  if (__DEV__) {
+    console.log('[booklog-notifications]', 'android-channel-ready', {
+      channelId: NOTIFICATION_CHANNEL_ID,
+    });
+  }
 }
 
 export function notificationFailureReason(error: unknown): string {
