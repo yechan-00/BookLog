@@ -1,7 +1,13 @@
 import { getMonthGrid, shiftMonth } from './calendar.ts';
 import { toDateKey } from './date.ts';
 import { buildMonthMarks } from './readingCalendar.ts';
-import { describeDay, type GoalPeriod, type ReadingActivity } from './readingPeriod.ts';
+import {
+  describeDay,
+  goalAmountProgress,
+  isAchievementCounted,
+  type GoalPeriod,
+  type ReadingActivity,
+} from './readingPeriod.ts';
 import { readingStreak } from './readingStreak.ts';
 import {
   homeReadingSummary,
@@ -97,6 +103,53 @@ function runAchievementChecks(): void {
 
   const pagesUnknown = describeDay('2026-11-09', '2026-11-10', [goal()], [read('2026-11-09', null)]);
   assert(pagesUnknown.achievement === 'unknown', 'missing pages are not guessed');
+
+  runGoalProgressChecks();
+}
+
+function runGoalProgressChecks(): void {
+  const today = '2026-11-25';
+  const time15 = goal({ type: 'time', targetValue: 15, daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startsOn: '2026-01-01' });
+  const pages10 = goal({ type: 'pages', targetValue: 10, daysOfWeek: [0, 1, 2, 3, 4, 5, 6], startsOn: '2026-01-01' });
+
+  assert(goalAmountProgress(time15, [read('2026-11-24', null, 0)]) === 'under', '0 seconds under');
+  assert(goalAmountProgress(time15, [read('2026-11-24', null, 600)]) === 'under', '600 under 900');
+  assert(goalAmountProgress(time15, [read('2026-11-24', null, 899)]) === 'under', '899 under');
+  assert(goalAmountProgress(time15, [read('2026-11-24', null, 900)]) === 'met', '900 exact met');
+  assert(goalAmountProgress(time15, [read('2026-11-24', null, 901)]) === 'over', '901 over');
+  assert(goalAmountProgress(time15, [read('2026-11-24', null, 1800)]) === 'over', '1800 over');
+
+  assert(goalAmountProgress(pages10, [read('2026-11-24', 0)]) === 'under', '0 pages under');
+  assert(goalAmountProgress(pages10, [read('2026-11-24', 9)]) === 'under', '9 under');
+  assert(goalAmountProgress(pages10, [read('2026-11-24', 10)]) === 'met', '10 met');
+  assert(goalAmountProgress(pages10, [read('2026-11-24', 11)]) === 'over', '11 over');
+  assert(goalAmountProgress(pages10, [read('2026-11-24', null)]) === null, 'null pages unknown');
+
+  assert(describeDay('2026-11-24', today, [time15], []).achievement === 'missed', 'past empty is missed');
+  assert(describeDay('2026-11-24', today, [time15], [read('2026-11-24', null, 900)]).achievement === 'achieved', 'exact time achieved');
+  assert(describeDay('2026-11-24', today, [time15], [read('2026-11-24', null, 901)]).achievement === 'exceeded', 'over time exceeded');
+  assert(describeDay('2026-11-24', today, [pages10], [read('2026-11-24', 10)]).achievement === 'achieved', 'exact pages achieved');
+  assert(describeDay('2026-11-24', today, [pages10], [read('2026-11-24', 11)]).achievement === 'exceeded', 'over pages exceeded');
+  assert(describeDay('2026-11-24', today, [pages10], [read('2026-11-24', null)]).achievement === 'unknown', 'null not missed');
+  assert(describeDay('2026-11-25', today, [time15], [read('2026-11-25', null, 100)]).achievement === 'pending', 'today under is pending');
+  assert(describeDay('2026-11-26', today, [time15], []).achievement === 'upcoming', 'future not missed');
+  assert(describeDay('2026-11-24', today, [], [read('2026-11-24', 5)]).achievement === 'none', 'no goal');
+  assert(
+    describeDay('2026-11-22', today, [goal({ daysOfWeek: [1, 2, 3, 4, 5] })], [read('2026-11-22', 5)]).achievement === 'off',
+    'Sunday rest with reading',
+  );
+  assert(describeDay('2025-12-01', today, [goal({ startsOn: '2026-01-01' })], []).achievement === 'none', 'before goal start');
+
+  const week = weeklyAchievement(today, [pages10], [
+    read('2026-11-24', 15),
+    read('2026-11-25', 10),
+  ]);
+  assert(isAchievementCounted('exceeded'), 'exceeded counts as achievement');
+  assert(
+    week.days.find((day) => day.dateKey === '2026-11-24')?.achievement === 'exceeded',
+    'calendar shows exceeded',
+  );
+  assert(week.achievedCount >= 1, 'exceeded still counts in weekly rate');
 }
 
 function runStreakChecks(): void {

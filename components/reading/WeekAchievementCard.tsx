@@ -64,7 +64,7 @@ export function WeekAchievementCard({ result }: WeekAchievementCardProps) {
 }
 
 function markerStyle(achievement: WeeklyAchievement['days'][number]['achievement']) {
-  if (achievement === 'achieved') {
+  if (achievement === 'achieved' || achievement === 'exceeded') {
     return styles.markerAchieved;
   }
 

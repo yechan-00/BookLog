@@ -1,9 +1,10 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookCover } from '@/components/books/BookCover';
 import { StatusBadge } from '@/components/books/StatusBadge';
+import { ConfirmSheet } from '@/components/common/ConfirmSheet';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { ProgressBar } from '@/components/common/ProgressBar';
@@ -58,9 +59,18 @@ export default function BookDetailScreen() {
   return <BookDetailContent detail={state.data} onChanged={state.refresh} />;
 }
 
+type PendingConfirm = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  destructive?: boolean;
+  onConfirm: () => void | Promise<void>;
+};
+
 function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChanged: () => void }) {
   const [indexOpen, setIndexOpen] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
   const { book, sessions, indexes, review, totalDurationSeconds } = detail;
   // A shelved book starts as 'wishlist' and becomes 'reading' when its first session is saved.
   const canRead = book.status !== 'completed';
@@ -75,11 +85,8 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
     }
   };
 
-  const confirmDelete = (title: string, message: string, onConfirm: () => void) => {
-    Alert.alert(title, message, [
-      { text: '취소', style: 'cancel' },
-      { text: '삭제', style: 'destructive', onPress: onConfirm },
-    ]);
+  const askConfirm = (next: PendingConfirm) => {
+    setPendingConfirm(next);
   };
 
   const runAction = async (action: () => Promise<void>, fallbackMessage: string) => {
@@ -108,14 +115,12 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
     };
 
     if (book.status === 'completed') {
-      Alert.alert(
-        "'읽고 싶음'으로 되돌릴까요?",
-        '진행률이 0으로 돌아가고 완독일이 지워져요. 지난 독서 기록과 인덱스는 그대로 남아요.',
-        [
-          { text: '취소', style: 'cancel' },
-          { text: '되돌리기', onPress: apply },
-        ],
-      );
+      askConfirm({
+        title: "'읽고 싶음'으로 되돌릴까요?",
+        message: '진행률이 0으로 돌아가고 완독일이 지워져요. 지난 독서 기록과 인덱스는 그대로 남아요.',
+        confirmLabel: '되돌리기',
+        onConfirm: apply,
+      });
       return;
     }
 
@@ -123,22 +128,30 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
   };
 
   const handleDeleteIndex = (indexId: string) =>
-    confirmDelete('인덱스를 삭제할까요?', '삭제한 인덱스는 되돌릴 수 없어요.', () => {
-      void runAction(() => deleteIndex(indexId), '인덱스를 삭제하지 못했습니다.');
+    askConfirm({
+      title: '인덱스를 삭제할까요?',
+      message: '삭제한 인덱스는 되돌릴 수 없어요.',
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: () => {
+        void runAction(() => deleteIndex(indexId), '인덱스를 삭제하지 못했습니다.');
+      },
     });
 
   const handleDeleteSession = (sessionId: string) =>
-    confirmDelete(
-      '이 독서 기록을 삭제할까요?',
-      '읽은 시간과 페이지가 달성률과 연속 독서일에서도 빠져요. 되돌릴 수 없어요.',
-      () => {
+    askConfirm({
+      title: '이 독서 기록을 삭제할까요?',
+      message: '읽은 시간과 페이지가 달성률과 연속 독서일에서도 빠져요. 되돌릴 수 없어요.',
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: () => {
         void runAction(async () => {
           await deleteSession(sessionId, book.userBookId);
           // Today's goal may no longer be met, so the reminder has to be rebuilt.
           void refreshEngagementReminder();
         }, '독서 기록을 삭제하지 못했습니다.');
       },
-    );
+    });
 
   const handleDeleteBook = () => {
     if (loadActiveSession()?.userBookId === book.userBookId) {
@@ -146,23 +159,24 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
       return;
     }
 
-    confirmDelete(
-      '서재에서 책을 삭제할까요?',
-      '독서 기록, 인덱스, 완독 기록이 모두 함께 삭제돼요. 되돌릴 수 없어요. 잠시 쉬고 싶다면 상태를 임시 중단으로 바꿔 주세요.',
-      () => {
-        void (async () => {
-          try {
-            await deleteUserBook(book.userBookId);
-          } catch (error) {
-            setActionError(error instanceof Error ? error.message : '책을 삭제하지 못했습니다.');
-            return;
-          }
+    askConfirm({
+      title: '서재에서 책을 삭제할까요?',
+      message:
+        '독서 기록, 인덱스, 완독 기록이 모두 함께 삭제돼요. 되돌릴 수 없어요. 잠시 쉬고 싶다면 상태를 임시 중단으로 바꿔 주세요.',
+      confirmLabel: '삭제',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await deleteUserBook(book.userBookId);
+        } catch (error) {
+          setActionError(error instanceof Error ? error.message : '책을 삭제하지 못했습니다.');
+          return;
+        }
 
-          void refreshEngagementReminder();
-          router.dismissTo('/(tabs)/library');
-        })();
+        void refreshEngagementReminder();
+        router.dismissTo('/(tabs)/library');
       },
-    );
+    });
   };
 
   return (
@@ -312,6 +326,20 @@ function BookDetailContent({ detail, onChanged }: { detail: BookDetail; onChange
           onSave={handleSaveIndex}
         />
       ) : null}
+
+      <ConfirmSheet
+        visible={pendingConfirm !== null}
+        title={pendingConfirm?.title ?? ''}
+        message={pendingConfirm?.message}
+        confirmLabel={pendingConfirm?.confirmLabel}
+        destructive={pendingConfirm?.destructive}
+        onCancel={() => setPendingConfirm(null)}
+        onConfirm={async () => {
+          const action = pendingConfirm?.onConfirm;
+          setPendingConfirm(null);
+          await action?.();
+        }}
+      />
     </>
   );
 }

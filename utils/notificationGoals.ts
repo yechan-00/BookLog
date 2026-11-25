@@ -35,7 +35,8 @@ export function listAchievedDateKeys(input: {
 
   for (let offset = 0; offset < horizon; offset += 1) {
     const dateKey = shiftDateKey(input.todayKey, offset);
-    if (describeDay(dateKey, input.todayKey, input.goals, input.activities).achievement === 'achieved') {
+    const achievement = describeDay(dateKey, input.todayKey, input.goals, input.activities).achievement;
+    if (achievement === 'achieved' || achievement === 'exceeded') {
       achieved.push(dateKey);
     }
   }

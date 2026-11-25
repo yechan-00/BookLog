@@ -41,10 +41,18 @@ export type DayAchievement =
   | 'none'
   | 'off'
   | 'achieved'
+  | 'exceeded'
   | 'missed'
   | 'pending'
   | 'upcoming'
   | 'unknown';
+
+/** Calendar/visual: exact target. Insights/rates treat exceeded as achieved too. */
+export function isAchievementCounted(achievement: DayAchievement): boolean {
+  return achievement === 'achieved' || achievement === 'exceeded';
+}
+
+export type GoalAmountProgress = 'under' | 'met' | 'over' | null;
 
 export interface DayReadingState {
   dateKey: string;
@@ -74,6 +82,8 @@ export function achievementLabel(achievement: DayAchievement): string {
   switch (achievement) {
     case 'achieved':
       return '달성';
+    case 'exceeded':
+      return '과달성';
     case 'missed':
       return '미달';
     case 'pending':
@@ -126,15 +136,28 @@ function activitiesOn(activities: readonly ReadingActivity[], dateKey: string): 
   return activities.filter((activity) => activity.readOn === dateKey);
 }
 
-/** True when the day's total meets the goal. Null when page data is missing. */
-export function isGoalMet(goal: GoalPeriod, activities: readonly ReadingActivity[]): boolean | null {
+/**
+ * Compares raw totals to the goal without display rounding.
+ * Time uses seconds vs target minutes * 60. Pages use stored pagesRead only.
+ */
+export function goalAmountProgress(
+  goal: GoalPeriod,
+  activities: readonly ReadingActivity[],
+): GoalAmountProgress {
   if (!Number.isSafeInteger(goal.targetValue) || goal.targetValue < 1) {
     return null;
   }
 
   if (goal.type === 'time') {
     const seconds = activities.reduce((sum, activity) => sum + safeDuration(activity.durationSeconds), 0);
-    return seconds >= goal.targetValue * 60;
+    const targetSeconds = goal.targetValue * 60;
+    if (seconds < targetSeconds) {
+      return 'under';
+    }
+    if (seconds === targetSeconds) {
+      return 'met';
+    }
+    return 'over';
   }
 
   let pageTotal = 0;
@@ -146,7 +169,22 @@ export function isGoalMet(goal: GoalPeriod, activities: readonly ReadingActivity
     pageTotal += pages;
   }
 
-  return pageTotal >= goal.targetValue;
+  if (pageTotal < goal.targetValue) {
+    return 'under';
+  }
+  if (pageTotal === goal.targetValue) {
+    return 'met';
+  }
+  return 'over';
+}
+
+/** True when the day's total meets or exceeds the goal. Null when page data is missing. */
+export function isGoalMet(goal: GoalPeriod, activities: readonly ReadingActivity[]): boolean | null {
+  const progress = goalAmountProgress(goal, activities);
+  if (progress === null) {
+    return null;
+  }
+  return progress === 'met' || progress === 'over';
 }
 
 export function describeDay(
@@ -179,10 +217,12 @@ export function describeDay(
   } else if (isFuture) {
     achievement = 'upcoming';
   } else {
-    const met = isGoalMet(goal, rows);
-    if (met === null) {
+    const progress = goalAmountProgress(goal, rows);
+    if (progress === null) {
       achievement = 'unknown';
-    } else if (met) {
+    } else if (progress === 'over') {
+      achievement = 'exceeded';
+    } else if (progress === 'met') {
       achievement = 'achieved';
     } else if (dateKey === todayKey) {
       achievement = 'pending';

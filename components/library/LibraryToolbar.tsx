@@ -1,5 +1,7 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ActionSheet } from '@/components/common/ActionSheet';
 import { AppIcon } from '@/components/common/AppIcon';
 import { homeTheme } from '@/constants/homeTheme';
 import type { LibrarySort, LibraryViewMode } from '@/utils/libraryView';
@@ -19,21 +21,8 @@ const sortOptions: { key: LibrarySort; label: string }[] = [
 ];
 
 export function LibraryToolbar({ sort, viewMode, onChangeSort, onChangeView }: LibraryToolbarProps) {
+  const [sortOpen, setSortOpen] = useState(false);
   const currentLabel = sortOptions.find((item) => item.key === sort)?.label ?? '최근 등록순';
-
-  const openSortMenu = () => {
-    Alert.alert(
-      '정렬',
-      undefined,
-      [
-        ...sortOptions.map((option) => ({
-          text: option.label,
-          onPress: () => onChangeSort(option.key),
-        })),
-        { text: '취소', style: 'cancel' as const },
-      ],
-    );
-  };
 
   return (
     <View style={styles.row}>
@@ -41,7 +30,7 @@ export function LibraryToolbar({ sort, viewMode, onChangeSort, onChangeView }: L
         accessibilityRole="button"
         accessibilityLabel={`정렬 ${currentLabel}`}
         hitSlop={6}
-        onPress={openSortMenu}
+        onPress={() => setSortOpen(true)}
         style={({ pressed }) => [styles.sortButton, pressed && styles.pressed]}
       >
         <Text style={styles.sortLabel}>{currentLabel}</Text>
@@ -84,6 +73,17 @@ export function LibraryToolbar({ sort, viewMode, onChangeSort, onChangeView }: L
           />
         </Pressable>
       </View>
+
+      <ActionSheet
+        visible={sortOpen}
+        title="정렬"
+        onClose={() => setSortOpen(false)}
+        items={sortOptions.map((option) => ({
+          key: option.key,
+          label: option.label,
+          onPress: () => onChangeSort(option.key),
+        }))}
+      />
     </View>
   );
 }

@@ -1,21 +1,23 @@
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
-  Alert,
   Pressable,
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '@/components/common/AppIcon';
+import { MessageSheet } from '@/components/common/MessageSheet';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
-import { SheetModal } from '@/components/common/SheetModal';
+import { showAppToast } from '@/components/common/AppToast';
+import { DurationPickerSheet } from '@/components/pickers/DurationPickerSheet';
+import { NumberPickerSheet } from '@/components/pickers/NumberPickerSheet';
+import { TimePickerSheet } from '@/components/pickers/TimePickerSheet';
 import { CircularProgress } from '@/components/home/CircularProgress';
 import { ReaderCard } from '@/components/reader/ReaderCard';
 import { readerLayout, readerRadius, readerSpace, readerTheme } from '@/constants/readerTheme';
@@ -41,6 +43,10 @@ import {
   type GoalDraft,
 } from '@/utils/goalForm';
 import { formatReminderDisplay } from '@/utils/insightDashboard';
+import {
+  formatDurationFieldLabel,
+  formatPageFieldLabel,
+} from '@/utils/wheelDuration';
 
 const dayOptions = [
   { day: 0, label: '일' },
@@ -73,8 +79,12 @@ export default function SettingsScreen() {
   const [engagementMessage, setEngagementMessage] = useState<string | null>(null);
   const [isEngagementBusy, setIsEngagementBusy] = useState(false);
   const [timeSheetOpen, setTimeSheetOpen] = useState(false);
+  const [durationOpen, setDurationOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [permissionSheetOpen, setPermissionSheetOpen] = useState(false);
   const [previewMessage, setPreviewMessage] = useState<string | null>(null);
   const parsed = validateGoalDraft(draft);
+  const targetNumber = Number(draft.target) || 15;
   const savedGoal = goalLoad.goal;
   const daySize = Math.min(
     layout.dayMax,
@@ -200,7 +210,8 @@ export default function SettingsScreen() {
       markDirty(false);
       const sync = await syncEngagementFromStoredGoal(saved);
       await refreshDeviceState();
-      setSaveMessage(`목표를 저장했습니다. ${describeEngagementSync(sync)}`);
+      showAppToast('독서 목표를 저장했어요.');
+      setSaveMessage(describeEngagementSync(sync));
     } catch (error) {
       setSaveMessage(error instanceof Error ? error.message : '목표를 저장하지 못했습니다.');
     } finally {
@@ -248,15 +259,7 @@ export default function SettingsScreen() {
             : '알림 권한이 필요해요. 휴대전화 설정에서 알림을 허용해 주세요.';
           setEngagementMessage(message);
           if (!next.canAskAgain) {
-            Alert.alert('알림 권한이 필요해요', '휴대전화 설정에서 BookLog 알림을 허용해 주세요.', [
-              { text: '닫기', style: 'cancel' },
-              {
-                text: '설정 열기',
-                onPress: () => {
-                  void openNotificationSettings();
-                },
-              },
-            ]);
+            setPermissionSheetOpen(true);
           }
           return;
         }
@@ -441,18 +444,19 @@ export default function SettingsScreen() {
             />
           </View>
 
-          <View style={styles.inputRow}>
-            <TextInput
-              value={draft.target}
-              onChangeText={(target) => updateDraft({ target })}
-              keyboardType="number-pad"
-              placeholder="30"
-              placeholderTextColor={readerTheme.textMuted}
-              style={styles.targetInput}
-              accessibilityLabel={draft.type === 'time' ? '하루 목표 분' : '하루 목표 페이지'}
-            />
-            <Text style={styles.unit}>{draft.type === 'time' ? '분' : '페이지'}</Text>
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={draft.type === 'time' ? '하루 목표 시간 선택' : '하루 목표 페이지 선택'}
+            onPress={() => (draft.type === 'time' ? setDurationOpen(true) : setPagesOpen(true))}
+            style={styles.inputRow}
+          >
+            <Text style={[styles.targetInput, styles.targetSelectText]}>
+              {draft.type === 'time'
+                ? formatDurationFieldLabel(targetNumber)
+                : formatPageFieldLabel(targetNumber)}
+            </Text>
+            <AppIcon name="chevronDown" size={16} color={readerTheme.textMuted} />
+          </Pressable>
           {!parsed.valid ? <Text style={styles.error}>{parsed.message}</Text> : null}
 
           <Text style={[styles.fieldLabel, styles.sectionGap]}>목표 요일</Text>
@@ -566,24 +570,46 @@ export default function SettingsScreen() {
         ) : null}
       </Screen>
 
-      <SheetModal visible={timeSheetOpen} title="알림 시간" onClose={() => setTimeSheetOpen(false)} avoidKeyboard>
-        <Text style={styles.caption}>HH:mm 형식으로 입력해 주세요. 예: 21:00</Text>
-        <TextInput
-          value={draft.reminderTime}
-          onChangeText={(reminderTime) => updateDraft({ reminderTime })}
-          placeholder="21:00"
-          placeholderTextColor={readerTheme.textMuted}
-          style={[styles.targetInput, styles.timeField]}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <PrimaryButton
-          label="확인"
-          onPress={() => setTimeSheetOpen(false)}
-          primaryColor={readerTheme.primary}
-          onPrimaryColor={readerTheme.onPrimary}
-        />
-      </SheetModal>
+      <DurationPickerSheet
+        visible={durationOpen}
+        initialTotalMinutes={targetNumber}
+        onClose={() => setDurationOpen(false)}
+        onConfirm={(totalMinutes) => updateDraft({ target: String(totalMinutes) })}
+      />
+      <NumberPickerSheet
+        visible={pagesOpen}
+        initialValue={targetNumber}
+        onClose={() => setPagesOpen(false)}
+        onConfirm={(pages) => updateDraft({ target: String(pages) })}
+      />
+      <TimePickerSheet
+        visible={timeSheetOpen}
+        initialHhmm={draft.reminderTime || savedGoal?.reminderTime || '21:00'}
+        notificationsEnabled={Boolean(savedGoal?.notificationsEnabled)}
+        onClose={() => setTimeSheetOpen(false)}
+        onConfirm={(hhmm) => updateDraft({ reminderTime: hhmm })}
+      />
+      <MessageSheet
+        visible={permissionSheetOpen}
+        title="알림 권한이 필요해요"
+        message="휴대전화 설정에서 BookLog 알림을 허용해 주세요."
+        onClose={() => setPermissionSheetOpen(false)}
+        actions={[
+          {
+            label: '설정 열기',
+            primary: true,
+            onPress: () => {
+              setPermissionSheetOpen(false);
+              void openNotificationSettings();
+            },
+          },
+          {
+            label: '닫기',
+            primary: false,
+            onPress: () => setPermissionSheetOpen(false),
+          },
+        ]}
+      />
     </>
   );
 }
@@ -777,6 +803,9 @@ const styles = StyleSheet.create({
     color: readerTheme.text,
     fontVariant: ['tabular-nums'],
     paddingVertical: 12,
+  },
+  targetSelectText: {
+    paddingRight: 8,
   },
   timeField: {
     marginVertical: 12,
