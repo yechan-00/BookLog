@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BookCover } from '@/components/books/BookCover';
+import { showAppToast } from '@/components/common/AppToast';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { SheetModal } from '@/components/common/SheetModal';
 import { TextField } from '@/components/common/TextField';
@@ -91,9 +92,8 @@ export function RegisterBookSheet({ book, onClose, onRegistered }: RegisterBookS
       if (!registered.userBookId || !registered.bookId) {
         throw new Error(REGISTER_FAILURE);
       }
-      Alert.alert('서재에 반영했습니다', '이미 있던 책이면 기존 기록을 유지합니다.', [
-        { text: '확인', onPress: onRegistered },
-      ]);
+      showAppToast('책을 서재에 추가했어요.');
+      onRegistered();
     } catch (error) {
       setRegisterError(publicErrorMessage(error, REGISTER_FAILURE));
       isSubmitting.current = false;
@@ -102,7 +102,7 @@ export function RegisterBookSheet({ book, onClose, onRegistered }: RegisterBookS
   };
 
   return (
-    <SheetModal visible={book !== null} title="서재에 추가" onClose={handleClose} avoidKeyboard>
+    <SheetModal visible={book !== null} title="서재에 추가" onClose={handleClose} avoidKeyboard scrollable={false}>
       {book ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"

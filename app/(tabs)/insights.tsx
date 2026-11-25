@@ -163,7 +163,8 @@ export default function InsightsScreen() {
                       key={day.dateKey}
                       style={[
                         styles.weekDot,
-                        day.achievement === 'achieved' && styles.weekDotOn,
+                        (day.achievement === 'achieved' || day.achievement === 'exceeded') &&
+                          styles.weekDotOn,
                         day.achievement === 'missed' && styles.weekDotMissed,
                       ]}
                       accessibilityLabel={`${day.label} ${day.achievement}`}

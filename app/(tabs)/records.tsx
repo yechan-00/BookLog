@@ -4,49 +4,45 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
 
 import { BookCover } from '@/components/books/BookCover';
+import { AppIcon } from '@/components/common/AppIcon';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
 import { SectionHeader } from '@/components/common/SectionHeader';
 import { SheetModal } from '@/components/common/SheetModal';
 import { MonthCalendar } from '@/components/reading/MonthCalendar';
-import { ReadingStatCard } from '@/components/reading/ReadingStatCard';
-import { WeekAchievementCard } from '@/components/reading/WeekAchievementCard';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
+import type { CalendarCompletedBook } from '@/utils/calendarCompletions';
+import {
+  completionsForDate,
+  groupCompletionsByDate,
+} from '@/utils/calendarCompletions';
 import { startOfToday, toDateKey } from '@/utils/date';
 import {
   formatDuration,
   formatKoreanDateKey,
   formatLocalClock,
-  formatMonthTitle,
 } from '@/utils/format';
 import { buildMonthMarks } from '@/utils/readingCalendar';
 import {
-  achievementLabel,
+  type DayAchievement,
+  type DayReadingState,
   type ReadingActivity,
 } from '@/utils/readingPeriod';
 import { loadLibraryBooks, loadReadingHistory } from '@/utils/readingSource';
-import { readingStreak } from '@/utils/readingStreak';
 import {
   daySessionSummary,
-  formatMonthEmptyMessage,
-  monthHasAnyReading,
-  monthReadingStats,
   selectionForVisibleMonth,
 } from '@/utils/recordsMonth';
-import { weeklyAchievement } from '@/utils/weeklyAchievement';
 
 export default function RecordsScreen() {
-  const { width } = useWindowDimensions();
-  const compact = width < 360;
   const todayKey = toDateKey(startOfToday());
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(startOfToday().getFullYear(), startOfToday().getMonth(), 1),
@@ -60,6 +56,7 @@ export default function RecordsScreen() {
   const booksSource = useFocusData(loadBooks);
 
   const history = source.status === 'ready' ? source.data : null;
+  const booksFailed = booksSource.status === 'error';
 
   const marks = useMemo(
     () =>
@@ -73,31 +70,18 @@ export default function RecordsScreen() {
     [history, todayKey, visibleMonth],
   );
 
-  const monthly = useMemo(() => {
-    if (!history) {
-      return null;
-    }
-    const books = booksSource.status === 'ready' ? booksSource.data : [];
-    return monthReadingStats(
-      visibleMonth.getFullYear(),
-      visibleMonth.getMonth(),
-      todayKey,
-      history.goals,
-      history.activities,
-      books,
-    );
-  }, [booksSource, history, todayKey, visibleMonth]);
-
-  const weekly = history ? weeklyAchievement(todayKey, history.goals, history.activities) : null;
-  const streak = history ? readingStreak(todayKey, history.goals, history.activities) : null;
-
+  const completionsByDate = useMemo(
+    () => groupCompletionsByDate(booksSource.status === 'ready' ? booksSource.data : []),
+    [booksSource],
+  );
   const selected = history
     ? daySessionSummary(selectedDate, todayKey, history.goals, history.activities)
     : null;
 
-  const monthEmpty =
-    history !== null &&
-    !monthHasAnyReading(visibleMonth.getFullYear(), visibleMonth.getMonth(), history.activities);
+  const selectedCompletions = useMemo(
+    () => completionsForDate(completionsByDate, selectedDate),
+    [completionsByDate, selectedDate],
+  );
 
   const changeMonth = (next: Date) => {
     setVisibleMonth(next);
@@ -130,6 +114,7 @@ export default function RecordsScreen() {
           selectedDate={selectedDate}
           todayKey={todayKey}
           marks={marks}
+          completionsByDate={completionsByDate}
           onSelectDate={setSelectedDate}
           onChangeMonth={changeMonth}
           onPressToday={goToday}
@@ -150,26 +135,9 @@ export default function RecordsScreen() {
         </View>
       ) : null}
 
-      <SectionHeader title={`${formatMonthTitle(visibleMonth)} 통계`} />
-      {source.status === 'loading' ? (
-        <EmptyState title="월별 통계를 불러오는 중이에요" />
-      ) : source.status === 'error' ? (
-        <EmptyState title="월별 통계를 확인하지 못했습니다" description={source.message} />
-      ) : monthly ? (
-        monthEmpty ? (
-          <EmptyState
-            title={formatMonthEmptyMessage(
-              visibleMonth.getFullYear(),
-              visibleMonth.getMonth(),
-              todayKey,
-            )}
-          />
-        ) : (
-          <MonthStatsCard stats={monthly} compact={compact} />
-        )
-      ) : (
-        <EmptyState title="월별 통계를 불러올 수 없습니다" />
-      )}
+      {booksFailed ? (
+        <Text style={styles.note}>완독 표지를 불러오지 못했어요. 독서 기록은 그대로 볼 수 있어요.</Text>
+      ) : null}
 
       <SectionHeader title={formatKoreanDateKey(selectedDate)} />
       {source.status === 'loading' ? (
@@ -185,45 +153,9 @@ export default function RecordsScreen() {
         <SelectedDay
           day={selected.day}
           sessions={selected.sessions}
+          completions={selectedCompletions}
           onOpenSession={setDetailSession}
           onOpenBook={(userBookId) => router.push(`/book/${userBookId}`)}
-        />
-      )}
-
-      <SectionHeader title="이번 주 달성률" />
-      <Text style={styles.periodHint}>이번 주(월~일) · 오늘 기준</Text>
-      {weekly ? (
-        <WeekAchievementCard result={weekly} />
-      ) : (
-        <EmptyState
-          title={
-            source.status === 'error'
-              ? '이번 주 달성률을 확인하지 못했습니다'
-              : source.status === 'loading'
-                ? '이번 주 달성률을 불러오는 중이에요'
-                : '이번 주 달성률을 불러올 수 없습니다'
-          }
-          description={source.status === 'error' ? source.message : '목표 이력과 날짜별 세션이 있어야 계산합니다.'}
-        />
-      )}
-
-      <SectionHeader title="연속 목표 달성일" />
-      <Text style={styles.periodHint}>오늘 기준 · 표시 중인 달과 무관</Text>
-      {streak ? (
-        <View style={styles.streak}>
-          <ReadingStatCard label="목표 요일 기준" value={`${streak.days}일`} />
-          <Text style={styles.note}>목표 요일만 셉니다. 오늘은 하루가 끝나기 전에 끊지 않습니다.</Text>
-        </View>
-      ) : (
-        <EmptyState
-          title={
-            source.status === 'error'
-              ? '연속 달성일을 확인하지 못했습니다'
-              : source.status === 'loading'
-                ? '연속 달성일을 불러오는 중이에요'
-                : '연속 달성일을 불러올 수 없습니다'
-          }
-          description={source.status === 'error' ? source.message : '목표 이력과 날짜별 세션이 있어야 계산합니다.'}
         />
       )}
 
@@ -238,131 +170,148 @@ export default function RecordsScreen() {
   );
 }
 
-function MonthStatsCard({
-  stats,
-  compact,
-}: {
-  stats: NonNullable<ReturnType<typeof monthReadingStats>>;
-  compact: boolean;
-}) {
-  const pagesLabel =
-    stats.sessionCount === 0
-      ? '—'
-      : stats.unknownPageSessionCount === stats.sessionCount
-        ? '미기록'
-        : stats.unknownPageSessionCount > 0
-          ? `${stats.knownPagesSum}p · 일부 미기록`
-          : `${stats.knownPagesSum}p`;
-
-  const rateLabel =
-    stats.achievement.rate === null
-      ? '—'
-      : `${stats.achievement.rate}% (${stats.achievement.achievedCount}/${stats.achievement.decidedCount})`;
-
-  const completedLabel =
-    stats.completedBookCount === null ? '집계 불가' : `${stats.completedBookCount}권`;
-
-  return (
-    <View style={[styles.monthStats, compact && styles.monthStatsCompact]}>
-      <StatChip label="총 독서 시간" value={formatDuration(stats.totalDurationSeconds)} />
-      <StatChip label="독서한 날" value={`${stats.readingDayCount}일`} />
-      <StatChip label="세션" value={`${stats.sessionCount}회`} />
-      <StatChip label="읽은 페이지" value={pagesLabel} />
-      <StatChip label="목표 달성" value={rateLabel} />
-      <StatChip label="완독" value={completedLabel} />
-    </View>
-  );
-}
-
-function StatChip({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.statChip}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue} numberOfLines={2}>
-        {value}
-      </Text>
-    </View>
-  );
+function selectedDayGoalLabel(day: DayReadingState): string {
+  const achievement: DayAchievement = day.achievement;
+  switch (achievement) {
+    case 'missed':
+      return '목표 미달성';
+    case 'achieved':
+      return '목표 달성';
+    case 'exceeded':
+      return '목표 초과 달성';
+    case 'pending':
+      return day.isToday ? '오늘 목표 진행 중' : '목표 진행';
+    case 'off':
+      return '독서 휴식일';
+    case 'none':
+      return '설정된 목표 없음';
+    case 'unknown':
+      return '목표 달성 여부 집계 불가';
+    case 'upcoming':
+      return '미래 날짜';
+    default:
+      return '기록 없음';
+  }
 }
 
 function SelectedDay({
   day,
   sessions,
+  completions,
   onOpenSession,
   onOpenBook,
 }: {
-  day: NonNullable<ReturnType<typeof daySessionSummary>>['day'];
+  day: DayReadingState;
   sessions: ReadingActivity[];
+  completions: CalendarCompletedBook[];
   onOpenSession: (session: ReadingActivity) => void;
   onOpenBook: (userBookId: string) => void;
 }) {
   return (
-    <View style={styles.dayCard}>
-      <Text style={styles.dayStatus}>
-        {day.achievement === 'none' || day.achievement === 'off'
-          ? achievementLabel(day.achievement)
-          : `목표 ${achievementLabel(day.achievement)}`}
-      </Text>
-      <Text style={styles.note}>
-        {formatDuration(day.durationSeconds)}
-        {day.pagesRead === null
-          ? day.hasReading
-            ? ' · 페이지 확인 불가'
-            : ''
-          : ` · ${day.pagesRead}페이지`}
-        {sessions.length > 0 ? ` · 세션 ${sessions.length}회` : ''}
-      </Text>
+    <View style={styles.dayStack}>
+      <View style={styles.dayCard}>
+        <Text style={styles.dayStatus}>{selectedDayGoalLabel(day)}</Text>
+        <Text style={styles.note}>
+          {formatDuration(day.durationSeconds)}
+          {day.pagesRead === null
+            ? day.hasReading
+              ? ' · 페이지 확인 불가'
+              : ''
+            : ` · ${day.pagesRead}페이지`}
+          {sessions.length > 0 ? ` · 세션 ${sessions.length}회` : ''}
+        </Text>
+      </View>
 
-      {sessions.length === 0 ? (
-        <Text style={styles.note}>이날의 독서 기록이 없어요.</Text>
-      ) : (
-        sessions.map((session, index) => {
-          const key = session.sessionId ?? `${session.readOn}-${session.bookTitle ?? 'book'}-${index}`;
-          return (
+      {completions.length > 0 ? (
+        <View style={styles.completedBlock}>
+          <Text style={styles.completedTitle}>이날 완독한 책</Text>
+          {completions.map((book) => (
             <Pressable
-              key={key}
+              key={book.userBookId}
               accessibilityRole="button"
-              accessibilityLabel={`${session.bookTitle ?? '책'} 세션 상세`}
-              onPress={() => onOpenSession(session)}
-              style={({ pressed }) => [styles.sessionRow, pressed && styles.pressed]}
+              accessibilityLabel={`${book.title} 상세 보기`}
+              onPress={() => onOpenBook(book.userBookId)}
+              style={({ pressed }) => [styles.completedRow, pressed && styles.pressed]}
             >
               <BookCover
-                title={session.bookTitle ?? '책'}
-                color={session.coverColor ?? colors.surfaceMuted}
-                imageUrl={session.coverImageUrl ?? undefined}
-                width={44}
+                title={book.title}
+                color={book.coverColor || colors.surfaceMuted}
+                imageUrl={book.coverImageUrl}
+                width={48}
               />
               <View style={styles.sessionBody}>
                 <Text style={styles.sessionTitle} numberOfLines={2}>
-                  {session.bookTitle ?? '책 정보 없음'}
+                  {book.title}
                 </Text>
-                {session.author ? (
+                {book.author ? (
                   <Text style={styles.note} numberOfLines={1}>
-                    {session.author}
+                    {book.author}
                   </Text>
                 ) : null}
-                <Text style={styles.note}>
-                  {formatDuration(session.durationSeconds)}
-                  {session.pagesRead === null
-                    ? ' · 페이지 미기록'
-                    : ` · ${session.pagesRead}페이지`}
-                </Text>
+                <Text style={styles.note}>완독</Text>
               </View>
-              {session.userBookId ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="책 상세 보기"
-                  hitSlop={8}
-                  onPress={() => onOpenBook(session.userBookId as string)}
-                  style={styles.bookLink}
-                >
-                  <Text style={styles.bookLinkText}>책</Text>
-                </Pressable>
-              ) : null}
+              <AppIcon name="chevronRight" color={colors.accent} size={18} />
             </Pressable>
-          );
-        })
-      )}
+          ))}
+        </View>
+      ) : null}
+
+      <View style={styles.dayCard}>
+        {sessions.length === 0 ? (
+          <Text style={styles.note}>이날의 독서 기록이 없어요.</Text>
+        ) : (
+          sessions.map((session, index) => {
+            const key = session.sessionId ?? `${session.readOn}-${session.bookTitle ?? 'book'}-${index}`;
+            return (
+              <Pressable
+                key={key}
+                accessibilityRole="button"
+                accessibilityLabel={`${session.bookTitle ?? '책'} 세션 상세`}
+                onPress={() => onOpenSession(session)}
+                style={({ pressed }) => [
+                  styles.sessionRow,
+                  index > 0 && styles.sessionRowBorder,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <BookCover
+                  title={session.bookTitle ?? '책'}
+                  color={session.coverColor ?? colors.surfaceMuted}
+                  imageUrl={session.coverImageUrl ?? undefined}
+                  width={44}
+                />
+                <View style={styles.sessionBody}>
+                  <Text style={styles.sessionTitle} numberOfLines={2}>
+                    {session.bookTitle ?? '책 정보 없음'}
+                  </Text>
+                  {session.author ? (
+                    <Text style={styles.note} numberOfLines={1}>
+                      {session.author}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.note}>
+                    {formatDuration(session.durationSeconds)}
+                    {session.pagesRead === null
+                      ? ' · 페이지 미기록'
+                      : ` · ${session.pagesRead}페이지`}
+                  </Text>
+                </View>
+                {session.userBookId ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="책 상세 보기"
+                    hitSlop={8}
+                    onPress={() => onOpenBook(session.userBookId as string)}
+                    style={styles.bookLink}
+                  >
+                    <Text style={styles.bookLinkText}>책</Text>
+                  </Pressable>
+                ) : null}
+              </Pressable>
+            );
+          })
+        )}
+      </View>
     </View>
   );
 }
@@ -446,29 +395,8 @@ const styles = StyleSheet.create({
     ...card,
     padding: spacing.lg,
   },
-  monthStats: {
-    ...card,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  dayStack: {
     gap: spacing.md,
-  },
-  monthStatsCompact: {
-    gap: spacing.sm,
-  },
-  statChip: {
-    width: '47%',
-    flexGrow: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  statValue: {
-    ...typography.bodyStrong,
-    color: colors.text,
   },
   dayCard: {
     ...card,
@@ -479,11 +407,30 @@ const styles = StyleSheet.create({
     ...typography.bodyStrong,
     color: colors.text,
   },
+  completedBlock: {
+    ...card,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  completedTitle: {
+    ...typography.bodyStrong,
+    color: colors.text,
+  },
+  completedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
   sessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  sessionRowBorder: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
@@ -522,13 +469,13 @@ const styles = StyleSheet.create({
   detailLine: {
     gap: 2,
   },
-  streak: {
-    gap: spacing.sm,
-  },
-  periodHint: {
+  statLabel: {
     ...typography.caption,
-    color: colors.textMuted,
-    marginTop: -spacing.sm,
+    color: colors.textSecondary,
+  },
+  statValue: {
+    ...typography.bodyStrong,
+    color: colors.text,
   },
   note: {
     ...typography.caption,

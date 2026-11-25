@@ -1,6 +1,7 @@
 import { addDays, parseDateKey, startOfWeek, toDateKey } from '@/utils/date';
 import {
   describeDay,
+  isAchievementCounted,
   weekdayLabel,
   type DayAchievement,
   type GoalPeriod,
@@ -22,7 +23,7 @@ export interface WeeklyAchievement {
 }
 
 function isDecided(achievement: DayAchievement): boolean {
-  return achievement === 'achieved' || achievement === 'missed';
+  return isAchievementCounted(achievement) || achievement === 'missed';
 }
 
 /** Current week starts on Monday. Future days and an unfinished today are not failures. */
@@ -41,7 +42,7 @@ export function weeklyAchievement(
     };
   });
   const decided = days.filter((day) => isDecided(day.achievement));
-  const achievedCount = decided.filter((day) => day.achievement === 'achieved').length;
+  const achievedCount = decided.filter((day) => isAchievementCounted(day.achievement)).length;
 
   return {
     rate: decided.length === 0 ? null : Math.round((achievedCount / decided.length) * 100),

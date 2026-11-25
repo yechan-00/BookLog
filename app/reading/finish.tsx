@@ -1,11 +1,13 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { ConfirmSheet } from '@/components/common/ConfirmSheet';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
 import { TextField } from '@/components/common/TextField';
+import { showAppToast } from '@/components/common/AppToast';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
@@ -96,6 +98,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
   const [saveError, setSaveError] = useState('');
   const [summary, setSummary] = useState<SavedSummary | null>(null);
   const [progressBefore, setProgressBefore] = useState<TodayGoalProgress | null>(null);
+  const [discardOpen, setDiscardOpen] = useState(false);
 
   const startedAt = new Date(session.startedAt);
   const measuredSeconds = Math.max(0, Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000));
@@ -170,6 +173,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
           pagesReadThisSession: pagesRead,
         }),
       });
+      showAppToast('독서 기록을 저장했어요.');
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '독서 기록을 저장하지 못했습니다.');
     } finally {
@@ -178,18 +182,7 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
   };
 
   const handleDiscard = () => {
-    Alert.alert('기록 없이 종료할까요?', '이번 독서 시간과 페이지는 저장되지 않아요.', [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '기록 없이 종료',
-        style: 'destructive',
-        onPress: () => {
-          clearActiveSession();
-          void cancelGoalReached();
-          goToBookDetail(book.userBookId);
-        },
-      },
-    ]);
+    setDiscardOpen(true);
   };
 
   if (summary) {
@@ -288,6 +281,21 @@ function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadi
         disabled={!endPageValid || !minutesValid || isSaving}
       />
       <PrimaryButton label="기록 없이 종료" variant="secondary" onPress={handleDiscard} disabled={isSaving} />
+      <ConfirmSheet
+        visible={discardOpen}
+        title="기록 없이 종료할까요?"
+        message="이번 독서 시간과 페이지는 저장되지 않아요."
+        confirmLabel="기록 없이 종료"
+        cancelLabel="취소"
+        destructive
+        onCancel={() => setDiscardOpen(false)}
+        onConfirm={() => {
+          setDiscardOpen(false);
+          clearActiveSession();
+          void cancelGoalReached();
+          goToBookDetail(book.userBookId);
+        }}
+      />
     </FinishShell>
   );
 }

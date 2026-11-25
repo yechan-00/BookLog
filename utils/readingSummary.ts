@@ -2,6 +2,7 @@ import { parseDateKey, toDateKey } from '@/utils/date';
 import {
   describeDay,
   goalForDate,
+  isAchievementCounted,
   shiftDateKey,
   type GoalPeriod,
   type ReadingActivity,
@@ -128,7 +129,7 @@ export function todayGoalProgress(
     const targetSeconds = active.targetValue * 60;
     const ratio = readSeconds / targetSeconds;
     return {
-      state: day.achievement === 'achieved' ? 'achieved' : 'in_progress',
+      state: isAchievementCounted(day.achievement) ? 'achieved' : 'in_progress',
       goalType: 'time',
       readSeconds,
       targetSeconds,
@@ -147,7 +148,7 @@ export function todayGoalProgress(
 
   const ratio = readPages / active.targetValue;
   return {
-    state: day.achievement === 'achieved' ? 'achieved' : 'in_progress',
+    state: isAchievementCounted(day.achievement) ? 'achieved' : 'in_progress',
     goalType: 'pages',
     readSeconds,
     targetSeconds: null,
@@ -221,7 +222,7 @@ export function achievementInRange(
   while (cursor <= toKey && guard < 400) {
     const achievement = describeDay(cursor, todayKey, goals, activities).achievement;
     if (
-      achievement === 'achieved' ||
+      isAchievementCounted(achievement) ||
       achievement === 'missed' ||
       achievement === 'pending' ||
       achievement === 'upcoming' ||
@@ -229,9 +230,9 @@ export function achievementInRange(
     ) {
       scheduledCount += 1;
     }
-    if (achievement === 'achieved' || achievement === 'missed') {
+    if (isAchievementCounted(achievement) || achievement === 'missed') {
       decidedCount += 1;
-      if (achievement === 'achieved') {
+      if (isAchievementCounted(achievement)) {
         achievedCount += 1;
       }
     }

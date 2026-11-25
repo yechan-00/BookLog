@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
@@ -9,6 +10,8 @@ type BookCoverProps = {
   height?: number;
   cornerRadius?: number;
   imageUrl?: string;
+  /** When true, missing/failed images show a blank tint instead of the title. */
+  hideTitleFallback?: boolean;
 };
 
 export function BookCover({
@@ -18,8 +21,11 @@ export function BookCover({
   height,
   cornerRadius = 4,
   imageUrl,
+  hideTitleFallback = false,
 }: BookCoverProps) {
   const coverHeight = height ?? Math.round(width * 1.48);
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(imageUrl) && !imageFailed;
 
   return (
     <View
@@ -29,9 +35,13 @@ export function BookCover({
       ]}
     >
       <View style={styles.edge} />
-      {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={styles.image} />
-      ) : (
+      {showImage ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={styles.image}
+          onError={() => setImageFailed(true)}
+        />
+      ) : hideTitleFallback ? null : (
         <Text numberOfLines={4} style={styles.title}>
           {title}
         </Text>

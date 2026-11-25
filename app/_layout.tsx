@@ -3,6 +3,8 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View } from 'react-native';
 
 import { AuthGateScreen } from '@/components/auth/AuthGateScreen';
+import { AppDialogHost } from '@/components/common/AppDialogHost';
+import { AppToastHost } from '@/components/common/AppToast';
 import { EmptyState } from '@/components/common/EmptyState';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { OnboardingScreen } from '@/components/goals/OnboardingScreen';
@@ -74,6 +76,8 @@ export default function RootLayout() {
     <AuthProvider>
       <StatusBar style="dark" />
       <AuthGate />
+      <AppDialogHost />
+      <AppToastHost />
     </AuthProvider>
   );
 }

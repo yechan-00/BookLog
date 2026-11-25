@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AppIcon } from '@/components/common/AppIcon';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
-import { TextField } from '@/components/common/TextField';
+import { DurationPickerSheet } from '@/components/pickers/DurationPickerSheet';
+import { NumberPickerSheet } from '@/components/pickers/NumberPickerSheet';
+import { TimePickerSheet } from '@/components/pickers/TimePickerSheet';
 import { colors } from '@/constants/colors';
 import { card, radius, spacing, typography } from '@/constants/theme';
 import { replaceGoal, setGoalNotificationsEnabled } from '@/lib/api/goals';
@@ -18,6 +21,11 @@ import {
   validateOnboardingGoalDraft,
   type OnboardingGoalDraft,
 } from '@/utils/onboardingGoal';
+import {
+  formatDurationFieldLabel,
+  formatPageFieldLabel,
+} from '@/utils/wheelDuration';
+import { formatReminderDisplay } from '@/utils/insightDashboard';
 
 const dayOptions = [
   { day: 0, label: '일' },
@@ -34,8 +42,12 @@ export function OnboardingScreen() {
   const [draft, setDraft] = useState<OnboardingGoalDraft>(ONBOARDING_INITIAL_DRAFT);
   const [message, setMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [durationOpen, setDurationOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
   const savingRef = useRef(false);
   const parsed = validateOnboardingGoalDraft(draft);
+  const targetNumber = Number(draft.target) || 15;
 
   const updateDraft = (patch: Partial<OnboardingGoalDraft>) => {
     setMessage(null);
@@ -111,90 +123,122 @@ export function OnboardingScreen() {
 
   return (
     <Screen includeBottomInset topInset>
-        <Text style={styles.title}>나만의 독서 목표를 설정해 보세요</Text>
-        <Text style={styles.subtitle}>매일 조금씩 읽는 습관을 만들어 보세요.</Text>
+      <Text style={styles.title}>나만의 독서 목표를 설정해 보세요</Text>
+      <Text style={styles.subtitle}>매일 조금씩 읽는 습관을 만들어 보세요.</Text>
 
-        <View style={styles.group}>
-          <Text style={styles.label}>목표 유형</Text>
-          <View style={styles.choices}>
-            <ChoiceChip
-              label="시간"
-              selected={draft.type === 'time'}
-              onPress={() => updateDraft({ type: 'time' })}
-            />
-            <ChoiceChip
-              label="페이지"
-              selected={draft.type === 'pages'}
-              onPress={() => updateDraft({ type: 'pages' })}
-            />
-          </View>
-
-          <TextField
-            label={draft.type === 'time' ? '하루 목표(분)' : '하루 목표(페이지)'}
-            value={draft.target}
-            onChangeText={(target) => updateDraft({ target })}
-            keyboardType="number-pad"
-            placeholder="15"
+      <View style={styles.group}>
+        <Text style={styles.label}>목표 유형</Text>
+        <View style={styles.choices}>
+          <ChoiceChip
+            label="시간"
+            selected={draft.type === 'time'}
+            onPress={() => updateDraft({ type: 'time' })}
           />
-
-          <Text style={styles.label}>독서 요일</Text>
-          <View style={styles.choices}>
-            {dayOptions.map((option) => {
-              const selected = draft.days.includes(option.day);
-              return (
-                <ChoiceChip
-                  key={option.day}
-                  label={option.label}
-                  selected={selected}
-                  onPress={() =>
-                    updateDraft({
-                      days: selected
-                        ? draft.days.filter((day) => day !== option.day)
-                        : [...draft.days, option.day],
-                    })
-                  }
-                />
-              );
-            })}
-          </View>
-
-          <Text style={styles.label}>독서 알림</Text>
-          <View style={styles.choices}>
-            <ChoiceChip
-              label="켜기"
-              selected={draft.notificationsEnabled}
-              onPress={() => updateDraft({ notificationsEnabled: true })}
-            />
-            <ChoiceChip
-              label="끄기"
-              selected={!draft.notificationsEnabled}
-              onPress={() => updateDraft({ notificationsEnabled: false })}
-            />
-          </View>
-          {draft.notificationsEnabled ? (
-            <TextField
-              label="알림 시간"
-              value={draft.reminderTime}
-              onChangeText={(reminderTime) => updateDraft({ reminderTime })}
-              placeholder="21:00"
-            />
-          ) : (
-            <Text style={styles.note}>나중에 설정에서 알림을 켤 수 있어요.</Text>
-          )}
+          <ChoiceChip
+            label="페이지"
+            selected={draft.type === 'pages'}
+            onPress={() => updateDraft({ type: 'pages' })}
+          />
         </View>
 
-        {!parsed.valid ? <Text style={styles.note}>{parsed.message}</Text> : null}
-        {message ? <Text style={styles.note}>{message}</Text> : null}
+        <Text style={styles.label}>{draft.type === 'time' ? '하루 목표' : '하루 목표'}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={draft.type === 'time' ? '하루 목표 시간 선택' : '하루 목표 페이지 선택'}
+          onPress={() => (draft.type === 'time' ? setDurationOpen(true) : setPagesOpen(true))}
+          style={styles.selectField}
+        >
+          <Text style={styles.selectValue}>
+            {draft.type === 'time'
+              ? formatDurationFieldLabel(targetNumber)
+              : formatPageFieldLabel(targetNumber)}
+          </Text>
+          <AppIcon name="chevronDown" size={16} color={colors.textMuted} />
+        </Pressable>
 
-        <PrimaryButton
-          label="독서 시작하기"
-          onPress={() => {
-            void handleStart();
-          }}
-          disabled={isSaving || !parsed.valid}
-          loading={isSaving}
-        />
-      </Screen>
+        <Text style={styles.label}>독서 요일</Text>
+        <View style={styles.choices}>
+          {dayOptions.map((option) => {
+            const selected = draft.days.includes(option.day);
+            return (
+              <ChoiceChip
+                key={option.day}
+                label={option.label}
+                selected={selected}
+                onPress={() =>
+                  updateDraft({
+                    days: selected
+                      ? draft.days.filter((day) => day !== option.day)
+                      : [...draft.days, option.day],
+                  })
+                }
+              />
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>독서 알림</Text>
+        <View style={styles.choices}>
+          <ChoiceChip
+            label="켜기"
+            selected={draft.notificationsEnabled}
+            onPress={() => updateDraft({ notificationsEnabled: true })}
+          />
+          <ChoiceChip
+            label="끄기"
+            selected={!draft.notificationsEnabled}
+            onPress={() => updateDraft({ notificationsEnabled: false })}
+          />
+        </View>
+        {draft.notificationsEnabled ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="알림 시간 선택"
+            onPress={() => setTimeOpen(true)}
+            style={styles.selectField}
+          >
+            <Text style={styles.selectValue}>
+              {formatReminderDisplay(draft.reminderTime || null)}
+            </Text>
+            <AppIcon name="chevronDown" size={16} color={colors.textMuted} />
+          </Pressable>
+        ) : (
+          <Text style={styles.note}>나중에 설정에서 알림을 켤 수 있어요.</Text>
+        )}
+      </View>
+
+      {!parsed.valid ? <Text style={styles.note}>{parsed.message}</Text> : null}
+      {message ? <Text style={styles.note}>{message}</Text> : null}
+
+      <PrimaryButton
+        label="독서 시작하기"
+        onPress={() => {
+          void handleStart();
+        }}
+        disabled={isSaving || !parsed.valid}
+        loading={isSaving}
+      />
+
+      <DurationPickerSheet
+        visible={durationOpen}
+        initialTotalMinutes={targetNumber}
+        onClose={() => setDurationOpen(false)}
+        onConfirm={(totalMinutes) => updateDraft({ target: String(totalMinutes) })}
+      />
+      <NumberPickerSheet
+        visible={pagesOpen}
+        initialValue={targetNumber}
+        onClose={() => setPagesOpen(false)}
+        onConfirm={(pages) => updateDraft({ target: String(pages) })}
+      />
+      <TimePickerSheet
+        visible={timeOpen}
+        initialHhmm={draft.reminderTime || '21:00'}
+        notificationsEnabled={draft.notificationsEnabled}
+        onClose={() => setTimeOpen(false)}
+        onConfirm={(hhmm) => updateDraft({ reminderTime: hhmm })}
+      />
+    </Screen>
   );
 }
 
@@ -244,6 +288,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  selectField: {
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  selectValue: {
+    ...typography.body,
+    color: colors.text,
+    flex: 1,
   },
   chip: {
     borderWidth: 1,

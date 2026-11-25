@@ -1,7 +1,12 @@
-import { Alert, Pressable, StyleSheet } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BookCover } from '@/components/books/BookCover';
+import { ActionSheet, type ActionSheetItem } from '@/components/common/ActionSheet';
 import { AppIcon } from '@/components/common/AppIcon';
 import { homeTheme } from '@/constants/homeTheme';
+import { readerTheme } from '@/constants/readerTheme';
+import { spacing, typography } from '@/constants/theme';
 import type { BookStatus, LibraryBook } from '@/types/book';
 import { bookStatusLabel } from '@/utils/book';
 import { planBookStatusChange, statusChangeOptions } from '@/utils/bookStatus';
@@ -22,56 +27,100 @@ export function LibraryBookMenu({
   onComplete,
   busy = false,
 }: LibraryBookMenuProps) {
-  const openMenu = () => {
-    if (busy) {
-      return;
-    }
+  const [open, setOpen] = useState(false);
 
-    const statusButtons = statusChangeOptions(book.status).flatMap((status) => {
+  const items = useMemo((): ActionSheetItem[] => {
+    const statusItems: ActionSheetItem[] = [];
+    for (const status of statusChangeOptions(book.status)) {
       const plan = planBookStatusChange(book.status, status);
       if (plan.kind === 'forbidden') {
-        return [];
+        continue;
       }
 
       if (plan.kind === 'complete_flow') {
-        return [
-          {
-            text: '완독 처리…',
-            onPress: () => onComplete?.(book.userBookId),
-          },
-        ];
+        statusItems.push({
+          key: 'complete',
+          label: '완독 처리',
+          icon: 'checkmark',
+          onPress: () => onComplete?.(book.userBookId),
+        });
+        continue;
       }
 
-      return [
-        {
-          text: bookStatusLabel[plan.next],
-          onPress: () => onChangeStatus?.(book.userBookId, plan.next),
-        },
-      ];
-    });
+      const icon =
+        plan.next === 'reading'
+          ? 'play'
+          : plan.next === 'paused'
+            ? 'clock'
+            : plan.next === 'wishlist'
+              ? 'bookmark'
+              : 'bookOpen';
 
-    Alert.alert(book.title, undefined, [
+      statusItems.push({
+        key: plan.next,
+        label: bookStatusLabel[plan.next],
+        icon,
+        onPress: () => onChangeStatus?.(book.userBookId, plan.next),
+      });
+    }
+
+    return [
       {
-        text: '책 상세 보기',
+        key: 'detail',
+        label: '책 상세 보기',
+        icon: 'document',
         onPress: () => onOpenDetail(book.userBookId),
       },
-      ...statusButtons,
-      { text: '취소', style: 'cancel' },
-    ]);
-  };
+      ...statusItems,
+    ];
+  }, [book, onChangeStatus, onComplete, onOpenDetail]);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${book.title} 더보기`}
-      accessibilityState={{ disabled: busy }}
-      disabled={busy}
-      hitSlop={10}
-      onPress={openMenu}
-      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-    >
-      <AppIcon name="more" size={16} color={homeTheme.textSecondary} />
-    </Pressable>
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${book.title} 더보기`}
+        accessibilityState={{ disabled: busy }}
+        disabled={busy}
+        hitSlop={10}
+        onPress={() => {
+          if (!busy) {
+            setOpen(true);
+          }
+        }}
+        style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+      >
+        <AppIcon name="more" size={16} color={homeTheme.textSecondary} />
+      </Pressable>
+
+      <ActionSheet
+        visible={open}
+        title="도서 메뉴"
+        onClose={() => setOpen(false)}
+        items={items}
+        header={
+          <View style={styles.header}>
+            <BookCover
+              title={book.title}
+              color={book.coverColor || readerTheme.soft}
+              imageUrl={book.coverImageUrl}
+              width={52}
+            />
+            <View style={styles.headerCopy}>
+              <Text style={styles.headerTitle} numberOfLines={3}>
+                {book.title}
+              </Text>
+              {book.author ? (
+                <Text style={styles.headerMeta} numberOfLines={1}>
+                  {book.author}
+                </Text>
+              ) : null}
+              <Text style={styles.headerStatus}>{bookStatusLabel[book.status]}</Text>
+            </View>
+          </View>
+        }
+      />
+    </>
   );
 }
 
@@ -84,5 +133,32 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.7,
+  },
+  header: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: readerTheme.border,
+    marginBottom: spacing.sm,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  headerTitle: {
+    ...typography.bodyStrong,
+    color: readerTheme.text,
+  },
+  headerMeta: {
+    ...typography.caption,
+    color: readerTheme.textSecondary,
+  },
+  headerStatus: {
+    ...typography.caption,
+    color: readerTheme.primary,
+    fontWeight: '600',
   },
 });

@@ -155,6 +155,7 @@ export function weekAchievedLabel(week: WeeklyAchievement): string {
 function isScheduledAchievement(achievement: DayAchievement): boolean {
   return (
     achievement === 'achieved' ||
+    achievement === 'exceeded' ||
     achievement === 'missed' ||
     achievement === 'pending' ||
     achievement === 'upcoming' ||

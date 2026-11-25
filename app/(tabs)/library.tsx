@@ -1,6 +1,6 @@
 import { router, type Href } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { LibraryBookGrid } from '@/components/library/LibraryBookGrid';
 import { LibraryEmptyState } from '@/components/library/LibraryEmptyState';
@@ -9,8 +9,10 @@ import { LibraryHeader } from '@/components/library/LibraryHeader';
 import { LibraryListItem } from '@/components/library/LibraryListItem';
 import { LibrarySearchField } from '@/components/library/LibrarySearchField';
 import { LibraryToolbar } from '@/components/library/LibraryToolbar';
+import { MessageSheet } from '@/components/common/MessageSheet';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
+import { showAppToast } from '@/components/common/AppToast';
 import { homeTheme } from '@/constants/homeTheme';
 import { useFocusData } from '@/hooks/useFocusData';
 import { updateBookStatus } from '@/lib/api/books';
@@ -30,6 +32,7 @@ export default function LibraryScreen() {
   const [sort, setSort] = useState<LibrarySort>('added');
   const [viewMode, setViewMode] = useState<LibraryViewMode>('grid');
   const [statusBusyId, setStatusBusyId] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const statusRequestRef = useRef(0);
   const loadBooks = useCallback(() => loadLibraryBooks(), []);
   const source = useFocusData(loadBooks);
@@ -61,14 +64,12 @@ export default function LibraryScreen() {
         return;
       }
       source.reload();
+      showAppToast('도서 상태를 변경했어요.');
     } catch (error) {
       if (requestId !== statusRequestRef.current) {
         return;
       }
-      Alert.alert(
-        '상태를 바꾸지 못했어요',
-        error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.',
-      );
+      setStatusError(error instanceof Error ? error.message : '잠시 후 다시 시도해 주세요.');
     } finally {
       if (requestId === statusRequestRef.current) {
         setStatusBusyId(null);
@@ -140,6 +141,13 @@ export default function LibraryScreen() {
           ))}
         </View>
       )}
+
+      <MessageSheet
+        visible={statusError !== null}
+        title="상태를 바꾸지 못했어요"
+        message={statusError ?? undefined}
+        onClose={() => setStatusError(null)}
+      />
     </Screen>
   );
 }

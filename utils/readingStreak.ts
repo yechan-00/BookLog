@@ -1,4 +1,10 @@
-import { describeDay, shiftDateKey, type GoalPeriod, type ReadingActivity } from '@/utils/readingPeriod';
+import {
+  describeDay,
+  isAchievementCounted,
+  shiftDateKey,
+  type GoalPeriod,
+  type ReadingActivity,
+} from '@/utils/readingPeriod';
 
 export interface ReadingStreak {
   /** Achieved goal weekdays. Days without a goal are not counted. */
@@ -23,7 +29,7 @@ export function readingStreak(
 
   while (cursor >= earliest) {
     const achievement = describeDay(cursor, todayKey, goals, activities).achievement;
-    if (achievement === 'achieved') {
+    if (isAchievementCounted(achievement)) {
       days += 1;
     } else if (achievement === 'missed' || achievement === 'unknown') {
       break;
@@ -56,7 +62,7 @@ export function bestReadingStreak(
 
   while (cursor <= todayKey) {
     const achievement = describeDay(cursor, todayKey, goals, activities).achievement;
-    if (achievement === 'achieved') {
+    if (isAchievementCounted(achievement)) {
       current += 1;
       if (current > best) {
         best = current;

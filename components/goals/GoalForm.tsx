@@ -1,12 +1,19 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { AppIcon } from '@/components/common/AppIcon';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
-import { TextField } from '@/components/common/TextField';
+import { DurationPickerSheet } from '@/components/pickers/DurationPickerSheet';
+import { NumberPickerSheet } from '@/components/pickers/NumberPickerSheet';
+import { TimePickerSheet } from '@/components/pickers/TimePickerSheet';
 import { colors } from '@/constants/colors';
 import { WEEKDAY_OPTIONS } from '@/constants/goal';
 import { radius, spacing, typography } from '@/constants/theme';
 import { validateGoalDraft, type GoalDraft, type GoalDraftResult } from '@/utils/goalForm';
+import {
+  formatDurationFieldLabel,
+  formatPageFieldLabel,
+} from '@/utils/wheelDuration';
 
 export type ValidGoal = Extract<GoalDraftResult, { valid: true }>;
 
@@ -22,7 +29,11 @@ type GoalFormProps = {
 /** Goal unit, amount, weekdays and reminder time. Shared by onboarding and settings. */
 export function GoalForm({ initialDraft, submitLabel, isSubmitting, errorMessage, onSubmit, onEdit }: GoalFormProps) {
   const [draft, setDraft] = useState<GoalDraft>(initialDraft);
+  const [durationOpen, setDurationOpen] = useState(false);
+  const [pagesOpen, setPagesOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
   const parsed = validateGoalDraft(draft);
+  const targetNumber = Number(draft.target) || 15;
 
   const updateDraft = (patch: Partial<GoalDraft>) => {
     onEdit?.();
@@ -36,13 +47,22 @@ export function GoalForm({ initialDraft, submitLabel, isSubmitting, errorMessage
         <Choice label="시간" selected={draft.type === 'time'} onPress={() => updateDraft({ type: 'time' })} />
         <Choice label="페이지" selected={draft.type === 'pages'} onPress={() => updateDraft({ type: 'pages' })} />
       </View>
-      <TextField
-        label={draft.type === 'time' ? '하루 목표(분)' : '하루 목표(페이지)'}
-        value={draft.target}
-        onChangeText={(target) => updateDraft({ target })}
-        keyboardType="number-pad"
-        placeholder="15"
-      />
+
+      <Text style={styles.label}>{draft.type === 'time' ? '하루 목표' : '하루 목표'}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={draft.type === 'time' ? '하루 목표 시간 선택' : '하루 목표 페이지 선택'}
+        onPress={() => (draft.type === 'time' ? setDurationOpen(true) : setPagesOpen(true))}
+        style={styles.selectField}
+      >
+        <Text style={styles.selectValue}>
+          {draft.type === 'time'
+            ? formatDurationFieldLabel(targetNumber)
+            : formatPageFieldLabel(targetNumber)}
+        </Text>
+        <AppIcon name="chevronDown" size={16} color={colors.textMuted} />
+      </Pressable>
+
       <Text style={styles.label}>목표 요일</Text>
       <View style={styles.choices}>
         {WEEKDAY_OPTIONS.map((option) => {
@@ -61,12 +81,18 @@ export function GoalForm({ initialDraft, submitLabel, isSubmitting, errorMessage
           );
         })}
       </View>
-      <TextField
-        label="알림 시간"
-        value={draft.reminderTime}
-        onChangeText={(reminderTime) => updateDraft({ reminderTime })}
-        placeholder="21:00"
-      />
+
+      <Text style={styles.label}>알림 시간</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="알림 시간 선택"
+        onPress={() => setTimeOpen(true)}
+        style={styles.selectField}
+      >
+        <Text style={styles.selectValue}>{draft.reminderTime || '시간 선택'}</Text>
+        <AppIcon name="chevronDown" size={16} color={colors.textMuted} />
+      </Pressable>
+
       {!parsed.valid ? <Text style={styles.note}>{parsed.message}</Text> : null}
       {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
       <PrimaryButton
@@ -78,6 +104,25 @@ export function GoalForm({ initialDraft, submitLabel, isSubmitting, errorMessage
         }}
         disabled={!parsed.valid || isSubmitting}
         loading={isSubmitting}
+      />
+
+      <DurationPickerSheet
+        visible={durationOpen}
+        initialTotalMinutes={targetNumber}
+        onClose={() => setDurationOpen(false)}
+        onConfirm={(totalMinutes) => updateDraft({ target: String(totalMinutes) })}
+      />
+      <NumberPickerSheet
+        visible={pagesOpen}
+        initialValue={targetNumber}
+        onClose={() => setPagesOpen(false)}
+        onConfirm={(pages) => updateDraft({ target: String(pages) })}
+      />
+      <TimePickerSheet
+        visible={timeOpen}
+        initialHhmm={draft.reminderTime || '21:00'}
+        onClose={() => setTimeOpen(false)}
+        onConfirm={(hhmm) => updateDraft({ reminderTime: hhmm })}
       />
     </View>
   );
@@ -116,6 +161,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
+  },
+  selectField: {
+    minHeight: 48,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  selectValue: {
+    ...typography.body,
+    color: colors.text,
+    flex: 1,
   },
   chip: {
     minHeight: 44,
