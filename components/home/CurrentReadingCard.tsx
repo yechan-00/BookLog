@@ -6,6 +6,7 @@ import { AppIcon } from '@/components/common/AppIcon';
 import { ProgressBar } from '@/components/common/ProgressBar';
 import { HomeCard, HomeCardTitle } from '@/components/home/HomeCard';
 import { homeTheme } from '@/constants/homeTheme';
+import { startReading } from '@/lib/reading/startReading';
 import type { LibraryBook } from '@/types/book';
 import { clampPercent, formatKoreanDateKey } from '@/utils/format';
 
@@ -91,9 +92,7 @@ export function CurrentReadingCard({ book }: CurrentReadingCardProps) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="독서 기록하기"
-            onPress={() =>
-              router.push({ pathname: '/reading/session', params: { userBookId: book.userBookId } })
-            }
+            onPress={() => startReading(book.userBookId, book.currentPage, book.status)}
             style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
           >
             <AppIcon name="note" size={15} color={homeTheme.onPrimary} />
