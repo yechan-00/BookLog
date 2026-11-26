@@ -30,26 +30,32 @@ export function Screen({
   backgroundColor = colors.background,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
-  const paddingTop = topInset ? insets.top + spacing.md : spacing.lg;
+  const safeTop = topInset ? insets.top : 0;
+  const paddingTop = topInset ? spacing.md : spacing.lg;
   const paddingBottom = (includeBottomInset ? insets.bottom : 0) + spacing.xxxl;
 
   if (!scroll) {
     return (
-      <View style={[styles.container, styles.content, { paddingTop, paddingBottom, backgroundColor }]}>
+      <View
+        style={[styles.container, styles.content, { paddingTop: safeTop + paddingTop, paddingBottom, backgroundColor }]}
+      >
         {children}
       </View>
     );
   }
 
+  // The status bar area sits outside the ScrollView so content never scrolls underneath it.
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor }]}
-      contentContainerStyle={[styles.content, { paddingTop, paddingBottom }, contentContainerStyle]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
-      {children}
-    </ScrollView>
+    <View style={[styles.container, { paddingTop: safeTop, backgroundColor }]}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={[styles.content, { paddingTop, paddingBottom }, contentContainerStyle]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
