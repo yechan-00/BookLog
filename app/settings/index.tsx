@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppIcon } from '@/components/common/AppIcon';
+import { AppIcon, type AppIconName } from '@/components/common/AppIcon';
 import { MessageSheet } from '@/components/common/MessageSheet';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { Screen } from '@/components/common/Screen';
@@ -22,6 +22,7 @@ import { CircularProgress } from '@/components/home/CircularProgress';
 import { ReaderCard } from '@/components/reader/ReaderCard';
 import { readerLayout, readerRadius, readerSpace, readerTheme } from '@/constants/readerTheme';
 import { fetchActiveGoal, replaceGoal, setGoalNotificationsEnabled } from '@/lib/api/goals';
+import { useFocusReturn } from '@/hooks/useFocusReturn';
 import { useAuth } from '@/lib/auth/AuthProvider';
 import { useGoal } from '@/lib/goals/GoalProvider';
 import {
@@ -62,6 +63,17 @@ type GoalLoadState =
   | { status: 'loading'; goal: StoredReadingGoal | null }
   | { status: 'ready'; goal: StoredReadingGoal | null }
   | { status: 'error'; message: string; goal: StoredReadingGoal | null };
+
+type NotificationStatusTone = 'success' | 'warning' | 'neutral';
+
+const NOTIFICATION_STATUS_TONES: Record<
+  NotificationStatusTone,
+  { icon: AppIconName; color: string; background: string }
+> = {
+  success: { icon: 'checkmark', color: readerTheme.success, background: '#EAF2E6' },
+  warning: { icon: 'bell', color: readerTheme.warning, background: readerTheme.trendUpBg },
+  neutral: { icon: 'clock', color: readerTheme.textSecondary, background: readerTheme.soft },
+};
 
 export default function SettingsScreen() {
   const { width } = useWindowDimensions();
@@ -160,6 +172,12 @@ export default function SettingsScreen() {
       };
     }, [loadGoal, refreshDeviceState]),
   );
+
+  // Returning from the system settings (after "설정 열기") does not refocus this screen,
+  // so the permission granted there is read again when the app comes back.
+  useFocusReturn(() => {
+    void refreshDeviceState();
+  });
 
   const updateDraft = (patch: Partial<GoalDraft>) => {
     setSaveMessage(null);
@@ -335,6 +353,13 @@ export default function SettingsScreen() {
     }
     return '알림 상태 확인 중';
   })();
+  const notificationStatusTone: NotificationStatusTone =
+    savedGoal?.notificationsEnabled && permission?.state === 'granted'
+      ? 'success'
+      : savedGoal?.notificationsEnabled && permission?.state === 'denied'
+        ? 'warning'
+        : 'neutral';
+  const statusToneStyle = NOTIFICATION_STATUS_TONES[notificationStatusTone];
 
   const savedDayCount = savedGoal?.daysOfWeek.length ?? 0;
   const ringPercent = savedGoal ? (savedDayCount / 7) * 100 : 0;
@@ -511,9 +536,9 @@ export default function SettingsScreen() {
               thumbColor={readerTheme.surface}
             />
           </View>
-          <View style={styles.statusPill}>
-            <AppIcon name="checkmark" size={12} color={readerTheme.success} />
-            <Text style={styles.statusPillText}>{notificationStatusLabel}</Text>
+          <View style={[styles.statusPill, { backgroundColor: statusToneStyle.background }]}>
+            <AppIcon name={statusToneStyle.icon} size={12} color={statusToneStyle.color} />
+            <Text style={[styles.statusPillText, { color: statusToneStyle.color }]}>{notificationStatusLabel}</Text>
           </View>
 
           <Pressable
@@ -875,7 +900,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EAF2E6',
     borderRadius: readerRadius.pill,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -883,7 +907,6 @@ const styles = StyleSheet.create({
   statusPillText: {
     fontSize: 12,
     lineHeight: 16,
-    color: readerTheme.success,
     fontWeight: '600',
   },
   settingRow: {
