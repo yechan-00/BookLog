@@ -11,18 +11,26 @@ export const calendarGoalColors = {
   exceeded: '#C29A48',
   pending: '#A89B8E',
   unknown: colors.textMuted,
+  offDayReading: colors.textSecondary,
 } as const;
 
 type CalendarGoalStatusIconProps = {
   achievement: DayAchievement;
+  /** A rest / no-goal day with a saved session still shows that the reader read (VIEW-01). */
+  hasReading?: boolean;
   size?: number;
 };
 
 /**
  * Book-shaped status for the calendar cell.
- * Shows nothing for rest / no-goal / future (caller still reserves layout height).
+ * Rest / no-goal days show a muted open book only when the reader read that day.
+ * Otherwise they, and future days, show nothing (caller still reserves layout height).
  */
-export function CalendarGoalStatusIcon({ achievement, size = 16 }: CalendarGoalStatusIconProps) {
+export function CalendarGoalStatusIcon({ achievement, hasReading = false, size = 16 }: CalendarGoalStatusIconProps) {
+  if ((achievement === 'none' || achievement === 'off') && hasReading) {
+    return <AppIcon name="bookOpen" color={calendarGoalColors.offDayReading} size={size} />;
+  }
+
   if (
     achievement === 'none' ||
     achievement === 'off' ||

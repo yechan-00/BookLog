@@ -45,7 +45,10 @@ function calendarMetrics(gridWidth: number, screenWidth: number) {
   return { dayNumberSize, coverWidth, coverHeight, iconSize, iconSlot, gap, cellHeight };
 }
 
-function accessibilityGoalPhrase(achievement: DayAchievement, isToday: boolean): string {
+function accessibilityGoalPhrase(achievement: DayAchievement, isToday: boolean, hasReading: boolean): string {
+  if ((achievement === 'off' || achievement === 'none') && hasReading) {
+    return '목표 요일이 아닌 날 독서';
+  }
   switch (achievement) {
     case 'missed':
       return '목표 미달성';
@@ -152,11 +155,12 @@ export function MonthCalendar({
           const isSelected = cell.dateKey === selectedDate;
           const isToday = cell.dateKey === todayKey;
           const achievement = mark?.achievement ?? 'none';
+          const hasReading = mark?.hasReading ?? false;
           const isFuture = cell.dateKey > todayKey;
           const completed = isFuture ? [] : (completionsByDate[cell.dateKey] ?? []);
           const primary = completed[0];
           const extraCount = Math.max(0, completed.length - 1);
-          const goalPhrase = accessibilityGoalPhrase(achievement, isToday);
+          const goalPhrase = accessibilityGoalPhrase(achievement, isToday, hasReading);
           const completedPhrase =
             completed.length > 0 ? `, 완독한 책 ${completed.length}권` : '';
 
@@ -212,7 +216,7 @@ export function MonthCalendar({
 
               <View style={{ height: metrics.iconSlot, alignItems: 'center', justifyContent: 'center' }}>
                 {!isFuture ? (
-                  <CalendarGoalStatusIcon achievement={achievement} size={metrics.iconSize} />
+                  <CalendarGoalStatusIcon achievement={achievement} hasReading={hasReading} size={metrics.iconSize} />
                 ) : (
                   <View style={{ width: metrics.iconSize, height: metrics.iconSize }} />
                 )}
@@ -242,6 +246,10 @@ function CalendarLegend({ compact }: { compact: boolean }) {
         <LegendItem
           icon={<CalendarGoalStatusIcon achievement="exceeded" size={14} />}
           label="과달성"
+        />
+        <LegendItem
+          icon={<CalendarGoalStatusIcon achievement="off" hasReading size={14} />}
+          label="목표 외 독서"
         />
       </View>
       <Text style={styles.legendHint}>책 표지는 완독한 날에 표시돼요.</Text>
@@ -341,6 +349,7 @@ const styles = StyleSheet.create({
   },
   legendRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 14,
   },
