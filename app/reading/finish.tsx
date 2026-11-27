@@ -11,6 +11,7 @@ import { showAppToast } from '@/components/common/AppToast';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
+import { useReturnToBookDetail } from '@/hooks/useReturnToBookDetail';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { finishSession } from '@/lib/api/sessions';
 import { cancelGoalReached } from '@/lib/notifications';
@@ -85,11 +86,8 @@ function FinishShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function goToBookDetail(userBookId: string) {
-  router.dismissTo({ pathname: '/book/[id]', params: { id: userBookId } });
-}
-
 function FinishForm({ book, session }: { book: LibraryBook; session: ActiveReadingSession }) {
+  const goToBookDetail = useReturnToBookDetail();
   // Fixed when this screen opens, so the shown duration matches what gets saved.
   const [endedAt] = useState(() => new Date());
   const [endPageText, setEndPageText] = useState(String(session.startPage));

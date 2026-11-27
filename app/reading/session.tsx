@@ -1,4 +1,4 @@
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -26,8 +26,14 @@ import { readParam } from '@/utils/book';
 export default function ReadingSessionScreen() {
   const params = useLocalSearchParams<{ userBookId?: string }>();
   const userBookId = readParam(params.userBookId);
-  // Read once: the stored session is updated by this screen only (focus exits), and mirrored here.
   const [session, setSession] = useState<ActiveReadingSession | null>(loadActiveSession);
+
+  // The finish screen can save or discard the session while this screen waits underneath, so re-read it on return.
+  useFocusEffect(
+    useCallback(() => {
+      setSession(loadActiveSession());
+    }, []),
+  );
 
   const loadBook = useCallback(
     () => (userBookId ? fetchLibraryBook(userBookId) : Promise.reject(new Error('책 정보가 없습니다.'))),
@@ -104,20 +110,25 @@ function ActiveSession({ book, session, onSessionChange }: ActiveSessionProps) {
   const [indexError, setIndexError] = useState('');
   const [alertNotice, setAlertNotice] = useState<string | null>(null);
 
+  // Armed on every focus: the finish screen cancels the alert, so backing out of it must re-arm.
   // A resumed session recomputes the remaining time from its start, so reopening stays accurate.
-  useEffect(() => {
-    let isCancelled = false;
+  useFocusEffect(
+    useCallback(() => {
+      let isCancelled = false;
 
-    armGoalReached(session.startedAt).then((result) => {
-      if (!isCancelled && result.status === 'failed') {
-        setAlertNotice(`목표 도달 알림을 예약하지 못했어요: ${result.reason}`);
-      }
-    });
+      armGoalReached(session.startedAt).then((result) => {
+        if (!isCancelled) {
+          setAlertNotice(
+            result.status === 'failed' ? `목표 도달 알림을 예약하지 못했어요: ${result.reason}` : null,
+          );
+        }
+      });
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [session.startedAt]);
+      return () => {
+        isCancelled = true;
+      };
+    }, [session.startedAt]),
+  );
 
   useFocusReturn(() => {
     const next = registerFocusExit();

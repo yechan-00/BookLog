@@ -10,6 +10,7 @@ import { TextField } from '@/components/common/TextField';
 import { colors } from '@/constants/colors';
 import { card, spacing, typography } from '@/constants/theme';
 import { useFocusData } from '@/hooks/useFocusData';
+import { useReturnToBookDetail } from '@/hooks/useReturnToBookDetail';
 import { fetchLibraryBook } from '@/lib/api/books';
 import { completeBook } from '@/lib/api/reviews';
 import type { LibraryBook } from '@/types/book';
@@ -66,6 +67,7 @@ function CompleteShell({ children }: { children: React.ReactNode }) {
 }
 
 function CompleteForm({ book }: { book: LibraryBook }) {
+  const goToBookDetail = useReturnToBookDetail();
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -78,7 +80,7 @@ function CompleteForm({ book }: { book: LibraryBook }) {
 
     try {
       await completeBook({ userBookId: book.userBookId, rating, content: review });
-      router.dismissTo({ pathname: '/book/[id]', params: { id: book.userBookId } });
+      goToBookDetail(book.userBookId);
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : '완독 기록을 저장하지 못했습니다.');
       setIsSaving(false);
