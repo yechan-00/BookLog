@@ -11,10 +11,11 @@ function runHomeWeekStatsChecks(): void {
     { readOn: '2026-11-10', durationSeconds: 1800, pagesRead: 10, bookTitle: 'A' },
     { readOn: '2026-11-11', durationSeconds: 2400, pagesRead: 12, bookTitle: 'A' },
     { readOn: '2026-11-03', durationSeconds: 1200, pagesRead: 8, bookTitle: 'A' },
+    { readOn: '2026-11-07', durationSeconds: 900, pagesRead: 5, bookTitle: 'A' },
   ]);
 
   assert(stats.totalSeconds === 4200, 'this week total uses Mon-Sun activities');
-  assert(stats.previousWeekSeconds === 1200, 'previous week is compared separately');
+  assert(stats.previousWeekSeconds === 1200, 'previous week counts only up to the same weekday (Sat excluded)');
   assert(stats.deltaSeconds === 3000, 'delta is this week minus previous week');
   assert(stats.days.length === 7, 'week has seven day columns');
   const friday = stats.days.find((day) => day.dateKey === '2026-11-13');

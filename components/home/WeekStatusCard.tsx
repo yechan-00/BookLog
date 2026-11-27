@@ -18,14 +18,16 @@ export function WeekStatusCard({ weekStats }: WeekStatusCardProps) {
   const hasReading = weekStats.totalSeconds > 0;
   const maxSeconds = Math.max(...weekStats.days.map((day) => day.durationSeconds), 0);
   const delta = weekStats.deltaSeconds;
-  const deltaLabel =
+  // The column is narrow, so the visible text uses an arrow; screen readers get the full sentence.
+  const deltaText =
     delta === null || weekStats.previousWeekSeconds === 0
       ? null
-      : delta > 0
-        ? `지난주보다 ${formatDuration(delta)} 더`
-        : delta < 0
-          ? `지난주보다 ${formatDuration(Math.abs(delta))} 덜`
-          : '지난주와 같아요';
+      : delta === 0
+        ? { label: '지난주와 같아요', spoken: '지난주 이맘때와 같은 시간 읽었어요' }
+        : {
+            label: `지난주보다 ${delta > 0 ? '▲' : '▼'}${formatDuration(Math.abs(delta))}`,
+            spoken: `지난주 이맘때보다 ${formatDuration(Math.abs(delta))} ${delta > 0 ? '더' : '적게'} 읽었어요`,
+          };
 
   return (
     <HomeCard>
@@ -43,9 +45,9 @@ export function WeekStatusCard({ weekStats }: WeekStatusCardProps) {
             <View style={styles.summaryCopy}>
               <Text style={styles.summaryLabel}>총 독서 시간</Text>
               <Text style={styles.summaryValue}>{formatDuration(weekStats.totalSeconds)}</Text>
-              {deltaLabel ? (
-                <Text style={styles.delta} numberOfLines={1}>
-                  {deltaLabel}
+              {deltaText ? (
+                <Text style={styles.delta} numberOfLines={1} accessibilityLabel={deltaText.spoken}>
+                  {deltaText.label}
                 </Text>
               ) : null}
             </View>
