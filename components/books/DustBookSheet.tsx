@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, StyleSheet, Text, View } from 'react-native';
 
+import { BookCover } from '@/components/books/BookCover';
+import { DustOverlay } from '@/components/books/DustOverlay';
 import { PrimaryButton } from '@/components/common/PrimaryButton';
 import { SheetModal } from '@/components/common/SheetModal';
 import { colors } from '@/constants/colors';
@@ -32,12 +34,20 @@ export function DustBookSheet({
   onContinueReading,
 }: DustBookSheetProps) {
   const [puff] = useState(() => new Animated.Value(0));
+  const [dustFade] = useState(() => new Animated.Value(1));
   const level = (book?.dustLevel ?? 0) as DustLevel;
   const dusty = level > 0;
+  // Keeps the last dusty level of this book so the dust can fade out after a wipe instead of vanishing.
+  const bookId = book?.userBookId ?? null;
+  const [overlay, setOverlay] = useState({ bookId, level });
+  if (overlay.bookId !== bookId || (dusty && overlay.level !== level)) {
+    setOverlay({ bookId, level });
+  }
 
   useEffect(() => {
     if (!wipeSucceeded) {
       puff.setValue(0);
+      dustFade.setValue(1);
       return;
     }
     let cancelled = false;
@@ -45,16 +55,17 @@ export function DustBookSheet({
       if (cancelled) {
         return;
       }
-      Animated.timing(puff, {
-        toValue: 1,
-        duration: reduce ? 1 : 420,
-        useNativeDriver: true,
-      }).start();
+      // The puff rises and fades away so the clean cover is left uncovered.
+      const duration = reduce ? 1 : 600;
+      Animated.parallel([
+        Animated.timing(puff, { toValue: 1, duration, useNativeDriver: true }),
+        Animated.timing(dustFade, { toValue: 0, duration, useNativeDriver: true }),
+      ]).start();
     });
     return () => {
       cancelled = true;
     };
-  }, [wipeSucceeded, puff]);
+  }, [wipeSucceeded, puff, dustFade]);
 
   return (
     <SheetModal visible={book !== null} title="책 상태" onClose={onClose}>
@@ -75,14 +86,23 @@ export function DustBookSheet({
           </Text>
 
           <View style={styles.dustPreview}>
-            <View style={[styles.previewBlock, { backgroundColor: book.coverColor }]} />
-            {dusty ? <View style={[styles.previewDust, { opacity: 0.15 + level * 0.1 }]} /> : null}
+            <View style={styles.previewCover}>
+              <BookCover
+                title={book.title}
+                color={book.coverColor}
+                imageUrl={book.coverImageUrl}
+                width={PREVIEW_COVER_WIDTH}
+              />
+              <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: dustFade }]}>
+                <DustOverlay level={overlay.level} />
+              </Animated.View>
+            </View>
             <Animated.View
               pointerEvents="none"
               style={[
                 styles.puff,
                 {
-                  opacity: puff.interpolate({ inputRange: [0, 1], outputRange: [0, 0.7] }),
+                  opacity: puff.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.7, 0] }),
                   transform: [
                     {
                       translateY: puff.interpolate({ inputRange: [0, 1], outputRange: [0, -18] }),
@@ -131,6 +151,8 @@ function statusLabel(status: DustBookView['status']): string {
   }
 }
 
+const PREVIEW_COVER_WIDTH = 76;
+
 const styles = StyleSheet.create({
   body: {
     gap: spacing.md,
@@ -144,19 +166,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   dustPreview: {
-    height: 72,
+    paddingVertical: spacing.md,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: colors.surfaceMuted,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  previewBlock: {
-    ...StyleSheet.absoluteFill,
-    opacity: 0.9,
-  },
-  previewDust: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(196, 186, 170, 0.7)',
+  previewCover: {
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   puff: {
     position: 'absolute',
