@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { DustOverlay } from '@/components/books/DustOverlay';
 import { colors } from '@/constants/colors';
 import { spineHeightFor } from '@/utils/spineStyle';
 
@@ -12,7 +13,7 @@ type BookSpineProps = {
   width?: number | null;
   /** Stable seed for height. Defaults to the title. */
   id?: string;
-  /** 0 is clean. Higher levels add a light dust veil. */
+  /** 0 is clean. Higher levels add a thicker dust cap and more specks. */
   dustLevel?: number;
   accessibilityHint?: string;
 };
@@ -27,7 +28,7 @@ export function BookSpine({
   accessibilityHint,
 }: BookSpineProps) {
   const [scale] = useState(() => new Animated.Value(1));
-  const [dustOpacity] = useState(() => new Animated.Value(dustVeil(dustLevel)));
+  const [dustOpacity] = useState(() => new Animated.Value(dustLevel > 0 ? 1 : 0));
   const seed = id?.trim() || title;
   const height = spineHeightFor(seed);
   const spineWidth = width ?? 36;
@@ -37,7 +38,7 @@ export function BookSpine({
 
   useEffect(() => {
     Animated.timing(dustOpacity, {
-      toValue: dustVeil(level),
+      toValue: level > 0 ? 1 : 0,
       duration: 280,
       useNativeDriver: true,
     }).start();
@@ -86,51 +87,13 @@ export function BookSpine({
         <View style={styles.bandBottom} />
         <View style={styles.edge} pointerEvents="none" />
         {level > 0 ? (
-          <Animated.View pointerEvents="none" style={[styles.dustVeil, { opacity: dustOpacity }]}>
-            {dustSpecks(level).map((speck) => (
-              <View
-                key={speck.key}
-                style={[
-                  styles.speck,
-                  {
-                    width: speck.size,
-                    height: speck.size,
-                    left: `${speck.x}%`,
-                    top: `${speck.y}%`,
-                    opacity: speck.opacity,
-                  },
-                ]}
-              />
-            ))}
+          <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: dustOpacity }]}>
+            <DustOverlay level={level} />
           </Animated.View>
         ) : null}
       </Animated.View>
     </Pressable>
   );
-}
-
-function dustVeil(level: number): number {
-  if (level <= 0) {
-    return 0;
-  }
-  if (level === 1) {
-    return 0.18;
-  }
-  if (level === 2) {
-    return 0.32;
-  }
-  return 0.46;
-}
-
-function dustSpecks(level: number) {
-  const count = level === 1 ? 3 : level === 2 ? 5 : 7;
-  return Array.from({ length: count }, (_, index) => ({
-    key: `speck-${index}`,
-    size: 2 + (index % 2),
-    x: 18 + ((index * 17) % 64),
-    y: 12 + ((index * 23) % 70),
-    opacity: 0.35 + (index % 3) * 0.12,
-  }));
 }
 
 const styles = StyleSheet.create({
@@ -179,14 +142,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
-  },
-  dustVeil: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(196, 186, 170, 0.35)',
-  },
-  speck: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(90, 78, 64, 0.55)',
   },
 });
