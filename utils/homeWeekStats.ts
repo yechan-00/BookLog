@@ -12,6 +12,7 @@ export type WeekDayDuration = {
 export type HomeWeekStats = {
   days: WeekDayDuration[];
   totalSeconds: number;
+  /** Last week up to the same weekday as today, so a half-finished week is not compared with a full one. */
   previousWeekSeconds: number;
   /** Null when there is no previous-week reading to compare. */
   deltaSeconds: number | null;
@@ -37,7 +38,8 @@ export function homeWeekStats(todayKey: string, activities: readonly ReadingActi
   });
 
   const previousStart = addDays(weekStart, -7);
-  const previousDays = Array.from({ length: 7 }, (_, index) =>
+  const elapsedDayCount = days.filter((day) => !day.isFuture).length;
+  const previousDays = Array.from({ length: elapsedDayCount }, (_, index) =>
     sumOnDay(activities, toDateKey(addDays(previousStart, index))),
   );
   const totalSeconds = days.reduce((sum, day) => sum + day.durationSeconds, 0);
