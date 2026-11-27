@@ -69,7 +69,9 @@ export function DustBookSheet({
           <Text style={styles.meta}>
             {book.elapsedDays === null
               ? '먼지 기준일을 확인할 수 없어요.'
-              : `${book.elapsedDays}일째 손이 가지 않았어요 · ${DUST_LEVEL_LABELS[level]}`}
+              : book.elapsedDays === 0
+                ? `오늘 손이 닿은 책이에요 · ${DUST_LEVEL_LABELS[level]}`
+                : `${book.elapsedDays}일째 손이 가지 않았어요 · ${DUST_LEVEL_LABELS[level]}`}
           </Text>
 
           <View style={styles.dustPreview}>
